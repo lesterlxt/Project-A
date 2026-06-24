@@ -54,6 +54,10 @@ class RuleConfig:
         return self.data["performance_score"]
 
     @property
+    def eligibility(self) -> dict[str, Any]:
+        return self.data["eligibility"]
+
+    @property
     def industry_keyword_rules(self) -> list[dict[str, str | float]]:
         return self.data["industry_keyword_rules"]
 

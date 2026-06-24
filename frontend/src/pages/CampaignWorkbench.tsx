@@ -15,6 +15,7 @@ import {
 import { AgentPipelineStatus } from "../components/AgentPipelineStatus";
 import { CompliancePanel } from "../components/CompliancePanel";
 import { ControlPanel } from "../components/ControlPanel";
+import { ExcludedFundsPanel } from "../components/ExcludedFundsPanel";
 import { FundEvidencePanel } from "../components/FundEvidencePanel";
 import { FundPoolStatusCard } from "../components/FundPoolStatusCard";
 import { FundRankingTable } from "../components/FundRankingTable";
@@ -187,14 +188,14 @@ export function CampaignWorkbench() {
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
                 <Badge variant="info">DeepSeek</Badge>
-                <Badge variant="success">真实基金池</Badge>
+                <Badge variant="success">公开基金池</Badge>
                 <Badge variant="warning">推导字段已标记</Badge>
               </div>
               <h1 className="text-2xl font-semibold tracking-normal md:text-3xl">
                 AI热点驱动的基金智能选品与营销生成平台
               </h1>
               <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                当前页面把推荐拆成数据来源、打分逻辑、渠道文案和合规结果，避免让推荐看起来像 AI 直接拍脑袋。
+                当前页面把系统初筛拆成数据来源、打分逻辑、渠道文案和合规结果，避免让候选基金看起来像 AI 直接拍脑袋。
               </p>
             </div>
             <div className="grid grid-cols-3 gap-2 text-right text-sm">
@@ -208,9 +209,9 @@ export function CampaignWorkbench() {
             <Card>
               <CardContent className="flex min-h-[420px] flex-col items-center justify-center gap-3 text-center">
                 <BarChart3 size={40} className="text-muted-foreground" />
-                <div className="text-lg font-semibold">等待生成推荐结果</div>
+                <div className="text-lg font-semibold">等待生成初筛结果</div>
                 <p className="max-w-md text-sm leading-6 text-muted-foreground">
-                  左侧选择热点、渠道和风险偏好后开始分析。结果会按真实接口、系统计算、规则推导和 AI 生成分区展示。
+                  左侧选择热点、渠道和风险偏好后开始分析。结果会按真实接口、系统计算、规则推导和 AI 生成分区展示，并标出被拦截的基金原因。
                 </p>
               </CardContent>
             </Card>
@@ -220,9 +221,10 @@ export function CampaignWorkbench() {
             <div className="space-y-5">
               <ReviewActions result={result} />
 
-              <section className="grid gap-4 lg:grid-cols-4">
+              <section className="grid gap-4 lg:grid-cols-5">
                 <KpiCard title="热点" value={result.hotspot_analysis.hotspot} detail={selectedHotspot?.summary ?? result.hotspot_analysis.summary} />
-                <KpiCard title="推荐基金" value={String(result.recommended_funds.length)} detail="当前筛选结果" />
+                <KpiCard title="候选基金" value={String(result.recommended_funds.length)} detail="通过 P0 初筛" />
+                <KpiCard title="已筛基金" value={String(result.screened_count)} detail={`${result.excluded_count} 只被拦截`} />
                 <KpiCard title="渠道" value={result.channel_strategy.channel} detail={riskPreference} />
                 <KpiCard title="合规" value={result.compliance.passed ? "通过" : "需复核"} detail="基础规则检查" />
               </section>
@@ -234,6 +236,7 @@ export function CampaignWorkbench() {
                     selectedFundCode={selectedFund?.fund_code ?? ""}
                     onSelect={setSelectedFundCode}
                   />
+                  <ExcludedFundsPanel funds={result.excluded_funds} />
                   {selectedFund && <ScoreBreakdown fund={selectedFund} />}
                 </div>
 

@@ -17,7 +17,7 @@ export function FundEvidencePanel({ fund }: Props) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <CardTitle className="flex items-center gap-2">
             <FileSearch size={18} />
-            推荐依据
+            初筛依据
           </CardTitle>
           <Badge variant={fund.is_enriched ? "success" : "warning"}>
             {fund.is_enriched ? "已增强" : "基础数据"}
@@ -25,6 +25,28 @@ export function FundEvidencePanel({ fund }: Props) {
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
+        <div className="grid gap-3 md:grid-cols-3">
+          <EvidenceItem label="候选状态" value={fund.is_eligible ? "已进入候选池" : "未进入候选池"} source="calculated" />
+          <EvidenceItem label="数据质量分" value={`${fund.data_quality_score.toFixed(1)}/100`} source={fund.field_sources.data_quality_score ?? "calculated"} />
+          <EvidenceItem label="缺失字段数" value={String(fund.missing_fields.length)} source="calculated" />
+        </div>
+
+        {!fund.is_eligible && fund.exclusion_reasons.length > 0 && (
+          <TextBox
+            title="排除原因"
+            source={fund.field_sources.exclusion_reasons ?? "calculated"}
+            text={fund.exclusion_reasons.join(" / ")}
+          />
+        )}
+
+        {fund.missing_fields.length > 0 && (
+          <TextBox
+            title="缺失字段"
+            source="missing"
+            text={fund.missing_fields.join(" / ")}
+          />
+        )}
+
         <EvidenceGroup title="真实接口数据">
           <EvidenceItem label="基金代码" value={fund.fund_code} source={fund.field_sources.fund_code} />
           <EvidenceItem label="基金名称" value={fund.fund_name} source={fund.field_sources.fund_name} />
@@ -39,7 +61,7 @@ export function FundEvidencePanel({ fund }: Props) {
           <EvidenceItem label="波动率" value={formatPercent(fund.volatility)} source={fund.field_sources.volatility} />
           <EvidenceItem label="最大回撤" value={formatPercent(fund.max_drawdown)} source={fund.field_sources.max_drawdown} />
           <EvidenceItem label="风险等级" value={fund.risk_level} source={fund.field_sources.risk_level} />
-          <EvidenceItem label="推荐分数" value={String(fund.score)} source={fund.field_sources.score} />
+          <EvidenceItem label="候选分数" value={String(fund.score)} source={fund.field_sources.score} />
         </EvidenceGroup>
 
         <div className="space-y-2">
@@ -65,7 +87,7 @@ export function FundEvidencePanel({ fund }: Props) {
 
         <div className="rounded-md border bg-background p-3">
           <div className="mb-2 flex items-center justify-between gap-3">
-            <div className="text-sm font-medium">推荐理由</div>
+            <div className="text-sm font-medium">初筛理由</div>
             <SourceBadge source={fund.field_sources.reason} />
           </div>
           <p className="text-sm leading-6 text-muted-foreground">{fund.reason}</p>

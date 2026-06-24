@@ -10,6 +10,15 @@ const labels: Record<string, string> = {
   compliance_penalty: "合规扣分",
 };
 
+const formulas: Record<string, string> = {
+  theme_relevance: "命中热点主题、行业、关键词的去重比例 x 主题权重，上限由规则配置控制。",
+  holding_match: "命中热点行业的行业暴露比例 x 持仓匹配权重；行业暴露可能来自真实映射或规则推导。",
+  positioning_match: "基金产品定位标签命中热点主题的数量 x 单标签分值。",
+  performance_stability: "基础分 - 波动率扣分 - 最大回撤扣分 - 近一年负收益扣分。",
+  channel_match: "银行渠道风险偏好分 x 渠道权重 + 用户风险偏好分 x 偏好权重。",
+  compliance_penalty: "当前为高风险产品匹配稳健型偏好时的规则扣分；P0 后由硬拦截优先处理。",
+};
+
 type Props = {
   fund: RecommendedFund;
 };
@@ -37,6 +46,7 @@ export function ScoreBreakdown({ fund }: Props) {
                   style={{ width: `${width}%` }}
                 />
               </div>
+              <p className="text-xs leading-5 text-muted-foreground">{formulas[key]}</p>
             </div>
           );
         })}

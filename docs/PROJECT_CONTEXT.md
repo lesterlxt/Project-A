@@ -357,11 +357,11 @@ Near-term change: rename product language from "recommended_funds" in the UI to 
 Most important:
 
 ```text
-1. Data completeness filtering
-2. Suitability hard blocking
-3. Candidate-fund wording instead of direct recommendation wording
-4. data_quality_score and exclusion_reasons per fund
-5. Formula and metric explanation visible in the frontend
+1. Data completeness filtering: initial implementation exists in EligibilityAgent
+2. Suitability hard blocking: initial implementation exists in EligibilityAgent
+3. Candidate-fund wording instead of direct recommendation wording: started in frontend
+4. data_quality_score and exclusion_reasons per returned fund: implemented
+5. Formula and metric explanation visible in the frontend: basic explanation added, backend-driven formulas still needed
 ```
 
 Important for business value:
@@ -421,10 +421,10 @@ These can come later, after the structured data and business boundaries are stab
 P0:
 
 ```text
-1. Data completeness filtering
-2. Suitability hard blocking
-3. Rename recommendation UI language to candidate / system shortlist
-4. Output exclusion_reasons and data_quality_score per fund
+1. Data completeness filtering: implemented
+2. Suitability hard blocking: implemented
+3. Rename recommendation UI language to candidate / system shortlist: started
+4. Output exclusion_reasons and data_quality_score per fund: implemented
 ```
 
 P1:

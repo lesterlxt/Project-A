@@ -157,7 +157,7 @@ Already done or in progress:
 
 Goal: make candidate ranking defensible.
 
-Build:
+Initial implementation:
 
 - `EligibilityAgent` or eligibility service;
 - `data_quality_score`;
@@ -165,6 +165,12 @@ Build:
 - hard risk suitability blocking;
 - UI language change from "推荐基金" to "候选基金 / 系统初筛";
 - separate "eligible candidates" and "excluded / data insufficient" sections.
+
+Remaining refinements:
+
+- expose score formulas from backend config instead of hardcoding frontend explanations;
+- paginate or query excluded funds instead of returning only a sample;
+- add more official product fields when data sources are available.
 
 Frontend should show:
 

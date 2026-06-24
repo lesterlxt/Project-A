@@ -120,6 +120,10 @@ class RecommendedFund(BaseModel):
     unsuitable_clients: str
     risk_warning: str
     field_sources: dict[str, str]
+    is_eligible: bool = True
+    data_quality_score: float = 0
+    missing_fields: list[str] = Field(default_factory=list)
+    exclusion_reasons: list[str] = Field(default_factory=list)
 
 
 class ChannelStrategy(BaseModel):
@@ -155,5 +159,9 @@ class CampaignResponse(BaseModel):
     hotspot_analysis: HotspotAnalysisResponse
     channel_strategy: ChannelStrategy
     recommended_funds: list[RecommendedFund]
+    excluded_funds: list[RecommendedFund] = Field(default_factory=list)
+    screened_count: int = 0
+    eligible_count: int = 0
+    excluded_count: int = 0
     marketing_copy: MarketingCopy
     compliance: ComplianceResult

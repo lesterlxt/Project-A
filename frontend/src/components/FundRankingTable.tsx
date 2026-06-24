@@ -13,9 +13,14 @@ export function FundRankingTable({ funds, selectedFundCode, onSelect }: Props) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle>推荐基金</CardTitle>
+        <CardTitle>候选基金</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
+        {funds.length === 0 && (
+          <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
+            当前筛选条件下暂无通过数据完整度和风险适当性检查的候选基金。
+          </p>
+        )}
         {funds.map((fund, index) => (
           <button
             type="button"
@@ -46,6 +51,7 @@ export function FundRankingTable({ funds, selectedFundCode, onSelect }: Props) {
             </span>
             <span className="flex flex-col items-end gap-1">
               <strong className="text-lg leading-none">{fund.score}</strong>
+              <span className="text-xs text-muted-foreground">质量 {fund.data_quality_score.toFixed(0)}</span>
               <Badge variant={fund.is_enriched ? "success" : "warning"}>{fund.is_enriched ? "增强" : "基础"}</Badge>
             </span>
           </button>

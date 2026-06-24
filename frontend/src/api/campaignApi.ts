@@ -103,6 +103,10 @@ export type RecommendedFund = {
   unsuitable_clients: string;
   risk_warning: string;
   field_sources: Record<string, "raw" | "calculated" | "inferred" | "generated" | "missing" | string>;
+  is_eligible: boolean;
+  data_quality_score: number;
+  missing_fields: string[];
+  exclusion_reasons: string[];
 };
 
 export type ChannelStrategy = {
@@ -138,6 +142,10 @@ export type CampaignResponse = {
   hotspot_analysis: HotspotAnalysis;
   channel_strategy: ChannelStrategy;
   recommended_funds: RecommendedFund[];
+  excluded_funds: RecommendedFund[];
+  screened_count: number;
+  eligible_count: number;
+  excluded_count: number;
   marketing_copy: MarketingCopy;
   compliance: ComplianceResult;
 };

@@ -1,4 +1,5 @@
 from app.schemas import ChannelStrategy, HotspotAnalysisResponse, RecommendedFund, ScoreBreakdown
+from app.agents.eligibility_agent import FundEligibility
 from app.services.fund_loader import Fund
 from app.services.rule_config import load_rule_config
 
@@ -6,26 +7,40 @@ from app.services.rule_config import load_rule_config
 class FundScorer:
     def score(
         self,
-        funds: list[Fund],
+        funds: list[FundEligibility],
         hotspot_analysis: HotspotAnalysisResponse,
         channel_strategy: ChannelStrategy,
         risk_preference: str,
         top_k: int,
     ) -> list[RecommendedFund]:
         scored = [
-            self._score_one(fund, hotspot_analysis, channel_strategy, risk_preference)
-            for fund in funds
+            self._score_one(result, hotspot_analysis, channel_strategy, risk_preference)
+            for result in funds
         ]
         scored.sort(key=lambda item: item.score, reverse=True)
         return scored[:top_k]
 
+    def excluded(
+        self,
+        funds: list[FundEligibility],
+        hotspot_analysis: HotspotAnalysisResponse,
+        limit: int = 30,
+    ) -> list[RecommendedFund]:
+        excluded = [
+            self._build_excluded(result, hotspot_analysis)
+            for result in funds[:limit]
+        ]
+        excluded.sort(key=lambda item: item.data_quality_score, reverse=True)
+        return excluded
+
     def _score_one(
         self,
-        fund: Fund,
+        eligibility: FundEligibility,
         hotspot_analysis: HotspotAnalysisResponse,
         channel_strategy: ChannelStrategy,
         risk_preference: str,
     ) -> RecommendedFund:
+        fund = eligibility.fund
         tags = hotspot_analysis.themes + hotspot_analysis.industries + hotspot_analysis.keywords
         fund_text = " ".join(
             fund.positioning
@@ -111,25 +126,89 @@ class FundScorer:
             suitable_clients=fund.suitable_clients,
             unsuitable_clients=self._unsuitable_clients(fund),
             risk_warning=risk_warning,
-            field_sources={
-                "fund_code": "raw",
-                "fund_name": "raw",
-                "fund_type": "raw",
-                "manager": "raw" if fund.manager != "未知" else "missing",
-                "latest_nav": "raw" if fund.latest_nav else "missing",
-                "estimated_growth": "raw" if fund.estimated_growth else "missing",
-                "one_year_return": "raw" if fund.one_year_return is not None else "missing",
-                "top_holdings": "raw" if fund.top_holdings else "missing",
-                "volatility": "calculated" if fund.volatility is not None else "missing",
-                "max_drawdown": "calculated" if fund.max_drawdown is not None else "missing",
-                "risk_level": "inferred",
-                "suitable_clients": "inferred",
-                "positioning": "inferred",
-                "industry_allocation": "inferred" if fund.industry_allocation else "missing",
-                "score": "calculated",
-                "reason": "generated",
-            },
+            field_sources=self._field_sources(fund),
+            is_eligible=True,
+            data_quality_score=eligibility.data_quality_score,
+            missing_fields=eligibility.missing_fields,
+            exclusion_reasons=[],
         )
+
+    def _build_excluded(
+        self,
+        eligibility: FundEligibility,
+        hotspot_analysis: HotspotAnalysisResponse,
+    ) -> RecommendedFund:
+        fund = eligibility.fund
+        reason = "未进入候选池：" + "；".join(eligibility.exclusion_reasons)
+        return RecommendedFund(
+            fund_code=fund.fund_code,
+            fund_name=fund.fund_name,
+            fund_type=fund.fund_type,
+            manager=fund.manager,
+            latest_nav=fund.latest_nav,
+            estimated_growth=fund.estimated_growth,
+            one_year_return=fund.one_year_return,
+            volatility=fund.volatility,
+            max_drawdown=fund.max_drawdown,
+            risk_level=fund.risk_level,
+            positioning=fund.positioning,
+            top_holdings=fund.top_holdings,
+            industry_allocation=fund.industry_allocation,
+            data_source=fund.data_source,
+            data_updated_at=fund.data_updated_at,
+            is_enriched=fund.is_enriched,
+            score=0.0,
+            score_breakdown=ScoreBreakdown(
+                theme_relevance=0,
+                holding_match=0,
+                positioning_match=0,
+                performance_stability=0,
+                channel_match=0,
+                compliance_penalty=0,
+            ),
+            matched_tags=self._matched_tags(fund, hotspot_analysis),
+            reason=reason,
+            suitable_clients=fund.suitable_clients,
+            unsuitable_clients=self._unsuitable_clients(fund),
+            risk_warning=self._build_risk_warning(fund),
+            field_sources=self._field_sources(fund),
+            is_eligible=False,
+            data_quality_score=eligibility.data_quality_score,
+            missing_fields=eligibility.missing_fields,
+            exclusion_reasons=eligibility.exclusion_reasons,
+        )
+
+    def _matched_tags(self, fund: Fund, hotspot_analysis: HotspotAnalysisResponse) -> list[str]:
+        tags = hotspot_analysis.themes + hotspot_analysis.industries + hotspot_analysis.keywords
+        fund_text = " ".join(
+            fund.positioning
+            + fund.top_holdings
+            + list(fund.industry_allocation.keys())
+            + [fund.fund_name, fund.fund_type]
+        )
+        return sorted({tag for tag in tags if tag and tag in fund_text})
+
+    def _field_sources(self, fund: Fund) -> dict[str, str]:
+        return {
+            "fund_code": "raw",
+            "fund_name": "raw",
+            "fund_type": "raw",
+            "manager": "raw" if fund.manager != "未知" else "missing",
+            "latest_nav": "raw" if fund.latest_nav else "missing",
+            "estimated_growth": "raw" if fund.estimated_growth else "missing",
+            "one_year_return": "raw" if fund.one_year_return is not None else "missing",
+            "top_holdings": "raw" if fund.top_holdings else "missing",
+            "volatility": "calculated" if fund.volatility is not None else "missing",
+            "max_drawdown": "calculated" if fund.max_drawdown is not None else "missing",
+            "risk_level": "inferred",
+            "suitable_clients": "inferred",
+            "positioning": "inferred",
+            "industry_allocation": "inferred" if fund.industry_allocation else "missing",
+            "score": "calculated",
+            "reason": "generated",
+            "data_quality_score": "calculated",
+            "exclusion_reasons": "calculated",
+        }
 
     def _performance_score(self, fund: Fund) -> float:
         if fund.volatility is None or fund.max_drawdown is None or fund.one_year_return is None:

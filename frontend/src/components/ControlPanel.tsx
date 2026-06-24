@@ -120,7 +120,7 @@ export function ControlPanel({
 
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
-              <Label>推荐数量</Label>
+              <Label>候选数量</Label>
               <span className="text-sm font-semibold">{topK}</span>
             </div>
             <input

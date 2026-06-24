@@ -1,5 +1,6 @@
 from app.agents.channel_strategy_agent import ChannelStrategyAgent
 from app.agents.copywriting_agent import CopywritingAgent
+from app.agents.eligibility_agent import EligibilityAgent
 from app.agents.hotspot_agent import HotspotAgent
 from app.schemas import CampaignRequest, CampaignResponse, HotspotAnalysisResponse
 from app.services.compliance import ComplianceChecker
@@ -12,6 +13,7 @@ class CampaignOrchestrator:
     def __init__(self) -> None:
         self.hotspot_agent = HotspotAgent()
         self.fund_loader = FundLoader()
+        self.eligibility_agent = EligibilityAgent()
         self.fund_scorer = FundScorer()
         self.channel_agent = ChannelStrategyAgent()
         self.copywriter = CopywritingAgent()
@@ -26,13 +28,23 @@ class CampaignOrchestrator:
         filtered_funds = self._filter_funds(funds, request.fund_type_filter)
         if not filtered_funds:
             filtered_funds = funds
+        screened_funds = self.eligibility_agent.screen(
+            filtered_funds,
+            request.risk_preference,
+        )
+        eligible_funds = [item for item in screened_funds if item.is_eligible]
+        excluded_funds = [item for item in screened_funds if not item.is_eligible]
         channel_strategy = self.channel_agent.build(request.channel)
         recommended_funds = self.fund_scorer.score(
-            funds=filtered_funds,
+            funds=eligible_funds,
             hotspot_analysis=hotspot_analysis,
             channel_strategy=channel_strategy,
             risk_preference=request.risk_preference,
             top_k=request.top_k,
+        )
+        excluded_fund_items = self.fund_scorer.excluded(
+            funds=excluded_funds,
+            hotspot_analysis=hotspot_analysis,
         )
         marketing_copy = self.copywriter.generate(
             hotspot_analysis=hotspot_analysis,
@@ -45,6 +57,10 @@ class CampaignOrchestrator:
             hotspot_analysis=hotspot_analysis,
             channel_strategy=channel_strategy,
             recommended_funds=recommended_funds,
+            excluded_funds=excluded_fund_items,
+            screened_count=len(screened_funds),
+            eligible_count=len(eligible_funds),
+            excluded_count=len(excluded_funds),
             marketing_copy=marketing_copy,
             compliance=compliance,
         )

@@ -52,6 +52,7 @@ function buildReviewMarkdown(result: CampaignResponse) {
 ### ${index + 1}. ${fund.fund_name} (${fund.fund_code})
 
 - 匹配分: ${fund.score}
+- 数据质量分: ${fund.data_quality_score.toFixed(1)}/100
 - 类型: ${fund.fund_type}
 - 基金经理: ${fund.manager || "未知"}
 - 风险等级: ${fund.risk_level} (${fund.field_sources.risk_level})
@@ -59,8 +60,23 @@ function buildReviewMarkdown(result: CampaignResponse) {
 - 波动率: ${formatValue(fund.volatility, "%")} (${fund.field_sources.volatility})
 - 最大回撤: ${formatValue(fund.max_drawdown, "%")} (${fund.field_sources.max_drawdown})
 - 匹配标签: ${fund.matched_tags.join(" / ") || "无"}
-- 推荐理由: ${fund.reason}
+- 缺失字段: ${fund.missing_fields.join(" / ") || "无"}
+- 初筛理由: ${fund.reason}
 - 风险提示: ${fund.risk_warning}
+`,
+    )
+    .join("\n");
+  const excludedFunds = result.excluded_funds
+    .slice(0, 10)
+    .map(
+      (fund, index) => `
+### ${index + 1}. ${fund.fund_name} (${fund.fund_code})
+
+- 数据质量分: ${fund.data_quality_score.toFixed(1)}/100
+- 类型: ${fund.fund_type}
+- 风险等级: ${fund.risk_level}
+- 排除原因: ${fund.exclusion_reasons.join(" / ") || "未返回"}
+- 缺失字段: ${fund.missing_fields.join(" / ") || "无"}
 `,
     )
     .join("\n");
@@ -72,6 +88,9 @@ function buildReviewMarkdown(result: CampaignResponse) {
 - 热点: ${result.hotspot_analysis.hotspot}
 - 渠道: ${result.channel_strategy.channel}
 - 审核状态: 待人工复核
+- 筛选基金数: ${result.screened_count}
+- 候选基金数: ${result.eligible_count}
+- 拦截基金数: ${result.excluded_count}
 - 基础合规检查: ${result.compliance.passed ? "通过" : "需处理"}
 
 ## 热点分析
@@ -83,9 +102,13 @@ ${result.hotspot_analysis.summary}
 - 关键词: ${result.hotspot_analysis.keywords.join(" / ")}
 - 风险: ${result.hotspot_analysis.risks.join(" / ")}
 
-## 推荐基金
+## 候选基金
 
 ${funds}
+
+## 未进入候选池样本
+
+${excludedFunds || "无"}
 
 ## 渠道文案
 
