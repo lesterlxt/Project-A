@@ -15,12 +15,20 @@ class HotspotAnalysisResponse(BaseModel):
     risks: list[str]
 
 
+class NewsEvidence(BaseModel):
+    title: str
+    source: str
+    published_at: str
+
+
 class HotspotItem(BaseModel):
     name: str
     heat_score: int
     summary: str
     related_keywords: list[str]
     source: str
+    source_detail: str = ""
+    evidence_headlines: list[NewsEvidence] = Field(default_factory=list)
 
 
 class TodayHotspotsResponse(BaseModel):
@@ -46,6 +54,52 @@ class FundSyncResponse(BaseModel):
     message: str
 
 
+class FundPoolStatusResponse(BaseModel):
+    available: bool
+    storage: str
+    source: str
+    total_count: int
+    enriched_count: int
+    latest_updated_at: str | None
+    db_path: str
+
+
+class DistributionItem(BaseModel):
+    label: str
+    count: int
+
+
+class FundPoolSummaryResponse(BaseModel):
+    available: bool
+    source: str
+    total_count: int
+    enriched_count: int
+    fund_type_distribution: list[DistributionItem]
+    risk_level_distribution: list[DistributionItem]
+
+
+class FundSyncDefaults(BaseModel):
+    limit: int
+    enrich_limit: int
+    keywords: list[str]
+
+
+class CampaignDefaults(BaseModel):
+    hotspot: str
+    channel: str
+    risk_preference: str
+    fund_type_filter: str
+    top_k: int
+
+
+class AppOptionsResponse(BaseModel):
+    channels: list[str]
+    risk_preferences: list[str]
+    fund_type_filters: list[str]
+    defaults: CampaignDefaults
+    fund_sync_defaults: FundSyncDefaults
+
+
 class CampaignRequest(BaseModel):
     hotspot: str = Field(..., examples=["AI算力"])
     channel: str = Field(default="招商银行", examples=["招商银行"])
@@ -63,18 +117,48 @@ class ScoreBreakdown(BaseModel):
     compliance_penalty: float
 
 
+class ExplanationPoint(BaseModel):
+    label: str
+    text: str
+    evidence_fields: list[str]
+    source: str
+
+
 class RecommendedFund(BaseModel):
     fund_code: str
     fund_name: str
     fund_type: str
+    fund_category: str
+    compare_group: str
+    category_reason: str
+    category_rank: int = 0
+    category_total: int = 0
     manager: str
+    latest_nav: str
+    estimated_growth: str
+    one_year_return: float | None
+    volatility: float | None
+    max_drawdown: float | None
+    risk_level: str
+    positioning: list[str]
+    top_holdings: list[str]
+    industry_allocation: dict[str, float]
+    data_source: str
+    data_updated_at: str
+    is_enriched: bool
     score: float
     score_breakdown: ScoreBreakdown
+    explanation_points: list[ExplanationPoint] = Field(default_factory=list)
     matched_tags: list[str]
     reason: str
     suitable_clients: str
     unsuitable_clients: str
     risk_warning: str
+    field_sources: dict[str, str]
+    is_eligible: bool = True
+    data_quality_score: float = 0
+    missing_fields: list[str] = Field(default_factory=list)
+    exclusion_reasons: list[str] = Field(default_factory=list)
 
 
 class ChannelStrategy(BaseModel):
@@ -110,5 +194,9 @@ class CampaignResponse(BaseModel):
     hotspot_analysis: HotspotAnalysisResponse
     channel_strategy: ChannelStrategy
     recommended_funds: list[RecommendedFund]
+    excluded_funds: list[RecommendedFund] = Field(default_factory=list)
+    screened_count: int = 0
+    eligible_count: int = 0
+    excluded_count: int = 0
     marketing_copy: MarketingCopy
     compliance: ComplianceResult

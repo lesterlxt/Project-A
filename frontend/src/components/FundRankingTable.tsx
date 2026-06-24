@@ -1,4 +1,7 @@
 import { RecommendedFund } from "../api/campaignApi";
+import { Badge } from "./ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { cn } from "../lib/utils";
 
 type Props = {
   funds: RecommendedFund[];
@@ -8,46 +11,56 @@ type Props = {
 
 export function FundRankingTable({ funds, selectedFundCode, onSelect }: Props) {
   return (
-    <div className="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>排名</th>
-            <th>基金</th>
-            <th>类型</th>
-            <th>经理</th>
-            <th>匹配分</th>
-            <th>标签</th>
-          </tr>
-        </thead>
-        <tbody>
-          {funds.map((fund, index) => (
-            <tr
-              key={fund.fund_code}
-              className={fund.fund_code === selectedFundCode ? "selected-row" : ""}
-              onClick={() => onSelect(fund.fund_code)}
-            >
-              <td>{index + 1}</td>
-              <td>
-                <strong>{fund.fund_name}</strong>
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle>候选基金</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {funds.length === 0 && (
+          <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
+            当前筛选条件下暂无通过数据完整度和风险适当性检查的候选基金。
+          </p>
+        )}
+        {funds.map((fund, index) => (
+          <button
+            type="button"
+            key={fund.fund_code}
+            onClick={() => onSelect(fund.fund_code)}
+            className={cn(
+              "grid w-full grid-cols-[32px_minmax(0,1fr)_72px] gap-3 rounded-md border p-3 text-left transition-colors hover:bg-accent/60",
+              fund.fund_code === selectedFundCode ? "border-primary bg-accent" : "border-border bg-background",
+            )}
+          >
+            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-xs font-semibold text-muted-foreground">
+              {index + 1}
+            </span>
+            <span className="min-w-0 space-y-1">
+              <span className="block truncate text-sm font-semibold">{fund.fund_name}</span>
+              <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                 <span>{fund.fund_code}</span>
-              </td>
-              <td>{fund.fund_type}</td>
-              <td>{fund.manager}</td>
-              <td>
-                <span className="score-pill">{fund.score}</span>
-              </td>
-              <td>
-                <div className="mini-tags">
-                  {fund.matched_tags.slice(0, 4).map((tag) => (
-                    <span key={tag}>{tag}</span>
-                  ))}
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+                <span>{fund.fund_type}</span>
+                <span>{fund.compare_group}</span>
+                <span>{fund.manager || "经理未知"}</span>
+              </span>
+              <span className="flex flex-wrap gap-1">
+                {fund.matched_tags.slice(0, 4).map((tag) => (
+                  <Badge key={tag} variant="muted">
+                    {tag}
+                  </Badge>
+                ))}
+              </span>
+            </span>
+            <span className="flex flex-col items-end gap-1">
+              <strong className="text-lg leading-none">{fund.score}</strong>
+              {fund.category_rank > 0 && (
+                <span className="text-xs text-muted-foreground">同组 {fund.category_rank}/{fund.category_total}</span>
+              )}
+              <span className="text-xs text-muted-foreground">质量 {fund.data_quality_score.toFixed(0)}</span>
+              <Badge variant={fund.is_enriched ? "success" : "warning"}>{fund.is_enriched ? "增强" : "基础"}</Badge>
+            </span>
+          </button>
+        ))}
+      </CardContent>
+    </Card>
   );
 }

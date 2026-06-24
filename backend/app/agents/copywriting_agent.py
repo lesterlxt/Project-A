@@ -26,9 +26,14 @@ class CopywritingAgent:
             {
                 "fund_name": fund.fund_name,
                 "fund_type": fund.fund_type,
+                "compare_group": fund.compare_group,
                 "score": fund.score,
+                "category_rank": fund.category_rank,
+                "category_total": fund.category_total,
+                "data_quality_score": fund.data_quality_score,
                 "matched_tags": fund.matched_tags,
                 "reason": fund.reason,
+                "explanation_points": [point.model_dump() for point in fund.explanation_points],
                 "suitable_clients": fund.suitable_clients,
                 "unsuitable_clients": fund.unsuitable_clients,
                 "risk_warning": fund.risk_warning,
@@ -46,9 +51,10 @@ class CopywritingAgent:
                 "请基于以下结构化信息生成银行渠道营销材料。\n"
                 f"热点分析：{hotspot_analysis.model_dump_json(ensure_ascii=False)}\n"
                 f"渠道画像：{channel_strategy.model_dump_json(ensure_ascii=False)}\n"
-                f"推荐基金：{funds_payload}\n"
+                f"系统初筛候选基金：{funds_payload}\n"
                 "返回 JSON 字段：headline, one_liner, relationship_manager_script, social_post, long_form, risk_disclosure。\n"
                 "relationship_manager_script 120-180 字；social_post 80-140 字；long_form 180-260 字；"
+                "如果候选基金为空，只能输出热点观察和后续人工补充数据建议，不得编造基金名称。"
                 "risk_disclosure 必须包含：基金投资有风险、不构成任何收益承诺、过往业绩不预示未来表现。"
             ),
             temperature=0.35,
@@ -93,8 +99,8 @@ class CopywritingAgent:
             f"本次营销主题为{hotspot_analysis.hotspot}。热点逻辑方面，{hotspot_analysis.summary}"
             f"机会主要来自{hotspot_analysis.opportunities[0]}，但也需要关注{hotspot_analysis.risks[0]}。"
             f"结合{channel_strategy.channel}客户画像，文案表达建议突出{focus}，"
-            f"避免使用短期收益导向或确定性收益表述。系统推荐的首位产品为{lead_fund.fund_name}，"
-            f"推荐依据包括主题相关度、持仓匹配、产品定位和风险等级适配。"
+            f"避免使用短期收益导向或确定性收益表述。系统初筛靠前的候选产品为{lead_fund.fund_name}，"
+            f"初筛依据包括主题相关度、持仓匹配、产品定位和风险等级适配。"
         )
         risk_disclosure = (
             "以上内容仅作为基金产品营销材料生成和内部审核辅助，不构成任何收益承诺或投资建议。"

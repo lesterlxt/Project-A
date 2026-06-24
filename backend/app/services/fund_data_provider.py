@@ -12,76 +12,11 @@ from pathlib import Path
 from typing import Any
 
 from app.schemas import FundSyncResponse
+from app.services.rule_config import load_rule_config
+from app.services.stock_industry_mapper import StockIndustryMapper
 
 
 DB_PATH = Path(__file__).resolve().parents[1] / "data" / "funds.db"
-
-DEFAULT_KEYWORDS = [
-    "AI",
-    "科技",
-    "半导体",
-    "算力",
-    "机器人",
-    "创新药",
-    "医药",
-    "红利",
-    "低波",
-    "储能",
-    "电力",
-    "新能源",
-    "军工",
-    "消费",
-]
-
-# 基金类型 → 风险等级推导
-RISK_LEVEL_MAP: dict[str, str] = {}
-
-
-def _build_risk_map() -> dict[str, str]:
-    """Build an ordered mapping from fund type string to risk level.
-
-    ORDER MATTERS: more specific patterns must come before generic ones
-    because ``_derive_risk_level`` matches on first ``substring in fund_type`` hit.
-    """
-    mapping: list[tuple[str, str]] = [
-        # R1 — safest
-        ("货币型", "R1"),
-        # R2 — conservative
-        ("纯债", "R2"),
-        ("同业存单", "R1"),
-        ("债券型", "R2"),
-        ("偏债", "R2"),
-        ("混合型-偏债", "R2"),
-        # R3 — balanced (check specific before generic "混合型")
-        ("混合型-灵活", "R3"),
-        ("混合型-平衡", "R3"),
-        ("混合型-偏股", "R4"),  # 偏股 is closer to equity
-        ("混合型", "R3"),
-        # R3 — index (specific overseas first)
-        ("指数型-海外股票", "R4"),
-        ("指数型-海外", "R4"),
-        ("指数型", "R3"),
-        # R3-R4 — QDII (specific before generic)
-        ("QDII-普通股票", "R4"),
-        ("QDII-指数", "R4"),
-        ("QDII-混合", "R3"),
-        ("QDII-债券", "R2"),
-        ("QDII", "R4"),
-        # R4 — equity-heavy
-        ("偏股", "R4"),
-        ("股票型", "R4"),
-        # Others
-        ("商品", "R4"),
-        ("联接", "R3"),
-        ("LOF", "R3"),
-        ("ETF", "R3"),
-        ("FOF", "R3"),
-    ]
-    return dict(mapping)
-
-
-RISK_LEVEL_MAP = _build_risk_map()
-
 
 @dataclass(frozen=True)
 class FundCandidate:
@@ -97,13 +32,17 @@ class FundDataProviderError(RuntimeError):
 class EastmoneyFundDataProvider:
     source = "Eastmoney fundcode_search.js + pingzhongdata + fundgz"
 
+    def __init__(self) -> None:
+        self.stock_industry_mapper = StockIndustryMapper()
+
     def sync(self, *, limit: int, enrich_limit: int, keywords: list[str]) -> FundSyncResponse:
         """
         Two-phase sync:
           1. Fast bulk insert — filter candidates by keywords, write 3000+ base rows to SQLite.
           2. Parallel enrichment — fetch per-fund detail/quote for the top N funds in a thread pool.
         """
-        active_keywords = [item.strip() for item in keywords if item.strip()] or DEFAULT_KEYWORDS
+        default_keywords = load_rule_config().fund_sync["default_keywords"]
+        active_keywords = [item.strip() for item in keywords if item.strip()] or default_keywords
         candidates = self._fetch_candidates()
         filtered = self._filter_candidates(candidates, active_keywords)
         selected = filtered[:limit]
@@ -115,6 +54,7 @@ class EastmoneyFundDataProvider:
         base_rows = [self._base_row(candidate) for candidate in selected]
         DB_PATH.parent.mkdir(parents=True, exist_ok=True)
         self._write_sqlite(base_rows)
+        self.stock_industry_mapper.ensure_table()
 
         # ---- Phase 2: parallel enrichment (thread pool) ----
         enrich_candidates = selected[:enrich_limit]
@@ -177,6 +117,7 @@ class EastmoneyFundDataProvider:
             "positioning": ";".join(self._positioning(candidate)),
             "top_holdings": "",
             "industry_allocation": "",
+            "industry_allocation_source": "",
             "one_year_return": "",
             "volatility": "",
             "max_drawdown": "",
@@ -192,7 +133,7 @@ class EastmoneyFundDataProvider:
     def _positioning(self, candidate: FundCandidate) -> list[str]:
         tags = [candidate.fund_type]
         text = f"{candidate.name} {candidate.fund_type}"
-        for keyword in DEFAULT_KEYWORDS:
+        for keyword in load_rule_config().fund_sync["default_keywords"]:
             if keyword.lower() in text.lower():
                 tags.append(keyword)
         return list(dict.fromkeys(tags))
@@ -253,8 +194,8 @@ class EastmoneyFundDataProvider:
             net_worth if isinstance(net_worth, list) else []
         )
 
-        # Industry allocation — derive from stock positions + fund name
-        industry_allocation = self._derive_industry_allocation(
+        # Prefer real stock-code industry mappings when the optional mapping table is available.
+        industry_allocation, industry_allocation_source = self._derive_industry_allocation(
             candidate.name, candidate.fund_type, stock_codes
         )
 
@@ -275,6 +216,7 @@ class EastmoneyFundDataProvider:
                     industry_allocation.items(), key=lambda kv: kv[1], reverse=True
                 )[:8]
             ),
+            "industry_allocation_source": industry_allocation_source,
             "one_year_return": self._percent(one_year_return),
             "volatility": self._percent(volatility),
             "max_drawdown": self._percent(max_drawdown),
@@ -380,48 +322,23 @@ class EastmoneyFundDataProvider:
 
     def _derive_industry_allocation(
         self, fund_name: str, fund_type: str, stock_codes: list[str]
-    ) -> dict[str, float]:
+    ) -> tuple[dict[str, float], str]:
         """
         Derive industry allocation from fund name, type, and known theme keywords.
         This is an approximation — for production use, cross-reference stock codes
         with Shenwan industry classification data.
         """
+        mapped_alloc, mapped_source = self.stock_industry_mapper.aggregate_by_holding_count(stock_codes)
+        if mapped_alloc:
+            return mapped_alloc, mapped_source
+
         alloc: dict[str, float] = {}
         text = f"{fund_name} {fund_type}"
 
-        # Keyword → likely industry mapping
-        industry_keywords: list[tuple[str, str, float]] = [
-            ("半导体", "电子", 25.0),
-            ("芯片", "电子", 25.0),
-            ("AI", "计算机", 20.0),
-            ("人工智能", "计算机", 20.0),
-            ("算力", "通信设备", 18.0),
-            ("光模块", "通信设备", 18.0),
-            ("机器人", "机械设备", 22.0),
-            ("创新药", "医药生物", 28.0),
-            ("医药", "医药生物", 25.0),
-            ("医疗", "医药生物", 25.0),
-            ("生物科技", "医药生物", 25.0),
-            ("红利", "银行", 18.0),
-            ("高股息", "银行", 18.0),
-            ("新能源", "电力设备", 22.0),
-            ("光伏", "电力设备", 25.0),
-            ("储能", "电力设备", 20.0),
-            ("军工", "国防军工", 25.0),
-            ("消费", "食品饮料", 20.0),
-            ("白酒", "食品饮料", 30.0),
-            ("汽车", "汽车", 25.0),
-            ("银行", "银行", 25.0),
-            ("券商", "非银金融", 25.0),
-            ("农业", "农林牧渔", 22.0),
-            ("低空经济", "国防军工", 18.0),
-            ("有色", "有色金属", 25.0),
-            ("煤炭", "煤炭", 25.0),
-            ("电力", "公用事业", 22.0),
-            ("科技", "计算机", 18.0),
-        ]
-
-        for keyword, industry, base_weight in industry_keywords:
+        for rule in load_rule_config().industry_keyword_rules:
+            keyword = str(rule["keyword"])
+            industry = str(rule["industry"])
+            base_weight = float(rule["weight"])
             if keyword.lower() in text.lower():
                 alloc[industry] = alloc.get(industry, 0) + base_weight
 
@@ -431,7 +348,7 @@ class EastmoneyFundDataProvider:
             if total > 0:
                 alloc = {k: min(v, 45.0) for k, v in alloc.items()}
 
-        return alloc
+        return alloc, "keyword_inferred" if alloc else ""
 
     def _latest_stock_ratio(self, asset_alloc: Any) -> float | None:
         """Extract the latest stock ratio from asset allocation data."""
@@ -491,6 +408,7 @@ class EastmoneyFundDataProvider:
             "positioning",
             "top_holdings",
             "industry_allocation",
+            "industry_allocation_source",
             "one_year_return",
             "volatility",
             "max_drawdown",
@@ -514,6 +432,7 @@ class EastmoneyFundDataProvider:
                     positioning TEXT,
                     top_holdings TEXT,
                     industry_allocation TEXT,
+                    industry_allocation_source TEXT,
                     one_year_return TEXT,
                     volatility TEXT,
                     max_drawdown TEXT,
@@ -527,6 +446,7 @@ class EastmoneyFundDataProvider:
                 )
                 """
             )
+            self._ensure_column(connection, "funds", "industry_allocation_source", "TEXT")
             connection.execute("DELETE FROM funds")
             placeholders = ",".join("?" for _ in columns)
             connection.executemany(
@@ -549,6 +469,7 @@ class EastmoneyFundDataProvider:
             "manager",
             "top_holdings",
             "industry_allocation",
+            "industry_allocation_source",
             "one_year_return",
             "volatility",
             "max_drawdown",
@@ -563,6 +484,7 @@ class EastmoneyFundDataProvider:
         set_clause = ",".join(f"{col}=?" for col in enrich_columns)
 
         with sqlite3.connect(DB_PATH) as connection:
+            self._ensure_column(connection, "funds", "industry_allocation_source", "TEXT")
             connection.executemany(
                 f"UPDATE funds SET {set_clause} WHERE fund_code=?",
                 [
@@ -571,26 +493,30 @@ class EastmoneyFundDataProvider:
                 ],
             )
 
+    def _ensure_column(
+        self,
+        connection: sqlite3.Connection,
+        table: str,
+        column: str,
+        definition: str,
+    ) -> None:
+        columns = {row[1] for row in connection.execute(f"PRAGMA table_info({table})").fetchall()}
+        if column not in columns:
+            connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
 
 # ------------------------------------------------------------------
 # Module-level helpers
 # ------------------------------------------------------------------
 
 def _derive_risk_level(fund_type: str) -> str:
-    """Derive risk level (R1-R5) from fund type string by partial matching."""
-    # Check in order of specificity
-    for type_key, risk in RISK_LEVEL_MAP.items():
-        if type_key in fund_type:
-            return risk
+    """Derive risk level (R1-R5) from configured ordered partial-match rules."""
+    for rule in load_rule_config().risk_level_rules:
+        if rule["contains"] in fund_type:
+            return rule["risk_level"]
     return "R3"
 
 
 def _suitable_clients_for_risk(risk_level: str) -> str:
-    mapping = {
-        "R1": "保守型及以上客户，适合短期闲置资金管理",
-        "R2": "稳健型及以上客户，适合中短期配置",
-        "R3": "平衡型及以上客户，适合中长期资产配置",
-        "R4": "进取型客户，能承受较大净值波动，适合长期投资",
-        "R5": "激进型客户，能承受显著净值波动，适合长期且风险承受能力强的投资者",
-    }
+    mapping = load_rule_config().suitable_clients_by_risk
     return mapping.get(risk_level, "需结合产品说明书和销售适当性规则确认")

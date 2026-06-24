@@ -1,15 +1,32 @@
-import { AlertTriangle, BarChart3, CheckCircle2, FileText, LineChart, Sparkles } from "lucide-react";
+import { FileText, LineChart, ShieldCheck } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { CampaignResponse, RecommendedFund, TodayHotspot, fetchTodayHotspots, runCampaign, syncRealFunds } from "../api/campaignApi";
+import {
+  AppOptions,
+  CampaignResponse,
+  FundPoolStatus,
+  FundPoolSummary,
+  RecommendedFund,
+  TodayHotspot,
+  fetchAppOptions,
+  fetchFundPoolSummary,
+  fetchFundPoolStatus,
+  fetchTodayHotspots,
+  runCampaign,
+  syncRealFunds,
+} from "../api/campaignApi";
+import { AgentPipelineStatus } from "../components/AgentPipelineStatus";
 import { CompliancePanel } from "../components/CompliancePanel";
+import { ControlPanel } from "../components/ControlPanel";
+import { ExcludedFundsPanel } from "../components/ExcludedFundsPanel";
+import { FundEvidencePanel } from "../components/FundEvidencePanel";
+import { FundPoolStatusCard } from "../components/FundPoolStatusCard";
 import { FundRankingTable } from "../components/FundRankingTable";
 import { MarketingCopyPanel } from "../components/MarketingCopyPanel";
+import { PreAnalysisDashboard } from "../components/PreAnalysisDashboard";
+import { ReviewActions } from "../components/ReviewActions";
 import { ScoreBreakdown } from "../components/ScoreBreakdown";
-
-const channels = ["招商银行", "工商银行", "建设银行", "农业银行"];
-const riskPreferences = ["稳健型", "平衡型", "进取型"];
-const fundTypes = ["全部", "权益", "指数", "ETF联接", "固收+", "红利低波"];
-const trendBars = [54, 62, 58, 73, 78, 84, 89];
+import { Badge } from "../components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 
 export function CampaignWorkbench() {
   const [hotspot, setHotspot] = useState("AI算力");
@@ -22,6 +39,9 @@ export function CampaignWorkbench() {
   const [todayHotspots, setTodayHotspots] = useState<TodayHotspot[]>([]);
   const [hotspotsUpdatedAt, setHotspotsUpdatedAt] = useState("");
   const [hotspotsLoading, setHotspotsLoading] = useState(false);
+  const [fundStatus, setFundStatus] = useState<FundPoolStatus | null>(null);
+  const [fundSummary, setFundSummary] = useState<FundPoolSummary | null>(null);
+  const [options, setOptions] = useState<AppOptions | null>(null);
   const [fundSyncing, setFundSyncing] = useState(false);
   const [fundSyncMessage, setFundSyncMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -30,14 +50,26 @@ export function CampaignWorkbench() {
   useEffect(() => {
     let active = true;
     setHotspotsLoading(true);
+    fetchAppOptions()
+      .then((response) => {
+        if (!active) return;
+        setOptions(response);
+        setHotspot((current) => current.trim() || response.defaults.hotspot);
+        setChannel(response.defaults.channel);
+        setRiskPreference(response.defaults.risk_preference);
+        setFundTypeFilter(response.defaults.fund_type_filter);
+        setTopK(response.defaults.top_k);
+      })
+      .catch(() => {
+        if (active) setOptions(null);
+      });
+
     fetchTodayHotspots()
       .then((response) => {
         if (!active) return;
         setTodayHotspots(response.items);
         setHotspotsUpdatedAt(response.updated_at);
-        if (response.items[0]) {
-          setHotspot(response.items[0].name);
-        }
+        if (response.items[0]) setHotspot(response.items[0].name);
       })
       .catch((err) => {
         if (!active) return;
@@ -46,6 +78,23 @@ export function CampaignWorkbench() {
       .finally(() => {
         if (active) setHotspotsLoading(false);
       });
+
+    fetchFundPoolStatus()
+      .then((response) => {
+        if (active) setFundStatus(response);
+      })
+      .catch(() => {
+        if (active) setFundStatus(null);
+      });
+
+    fetchFundPoolSummary()
+      .then((response) => {
+        if (active) setFundSummary(response);
+      })
+      .catch(() => {
+        if (active) setFundSummary(null);
+      });
+
     return () => {
       active = false;
     };
@@ -86,8 +135,16 @@ export function CampaignWorkbench() {
     setFundSyncMessage("");
     setError("");
     try {
-      const response = await syncRealFunds();
-      setFundSyncMessage(`已同步 ${response.synced_count} 只，增强 ${response.enriched_count} 只`);
+      const response = await syncRealFunds({
+        limit: options?.fund_sync_defaults.limit,
+        enrichLimit: options?.fund_sync_defaults.enrich_limit,
+        keywords: options?.fund_sync_defaults.keywords,
+      });
+      setFundSyncMessage(`已同步 ${response.synced_count} 只基金，增强 ${response.enriched_count} 只。`);
+      const status = await fetchFundPoolStatus();
+      setFundStatus(status);
+      const summary = await fetchFundPoolSummary();
+      setFundSummary(summary);
     } catch (err) {
       setError(err instanceof Error ? err.message : "基金池同步失败");
     } finally {
@@ -96,267 +153,255 @@ export function CampaignWorkbench() {
   }
 
   const selectedHotspot = todayHotspots.find((item) => item.name === hotspot);
-  const heatScore = selectedHotspot?.heat_score ?? (result ? Math.min(96, 68 + result.hotspot_analysis.themes.length * 4) : 0);
-  const copyCount = result ? 4 : 0;
-  const updatedTime = hotspotsUpdatedAt ? new Date(hotspotsUpdatedAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) : "--:--";
+  const updatedTime = hotspotsUpdatedAt
+    ? new Date(hotspotsUpdatedAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })
+    : "--:--";
 
   return (
-    <main className="app-shell">
-      <aside className="control-panel">
-        <div className="brand-row">
-          <div className="brand-icon">
-            <Sparkles size={18} />
+    <main className="min-h-screen bg-background">
+      <div className="grid min-h-screen grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)]">
+        <aside className="border-r bg-white/80 p-4 backdrop-blur xl:sticky xl:top-0 xl:h-screen xl:overflow-y-auto">
+          <div className="mb-4">
+            <div className="text-lg font-semibold">Project A</div>
+            <div className="text-sm text-muted-foreground">基金热点选品与营销工作台</div>
           </div>
-          <div>
-            <h1>Project A</h1>
-            <p>基金热点选品工作台</p>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="form-stack">
-          <label className="field">
-            <span>市场热点</span>
-            <input value={hotspot} onChange={(event) => setHotspot(event.target.value)} />
-          </label>
-
-          <div className="hotspot-list">
-            <div className="hotspot-list-header">
-              <span>今日热点 Top 5</span>
-              <small>{hotspotsLoading ? "加载中" : `更新 ${updatedTime}`}</small>
-            </div>
-            {todayHotspots.map((preset) => (
-              <button
-                type="button"
-                key={preset.name}
-                className={preset.name === hotspot ? "hotspot-button active" : "hotspot-button"}
-                onClick={() => setHotspot(preset.name)}
-              >
-                <strong>{preset.name}</strong>
-                <span>{preset.heat_score}</span>
-              </button>
-            ))}
-            {!hotspotsLoading && todayHotspots.length === 0 && (
-              <p className="hotspot-empty">未获取到真实热点，请检查网络或 DeepSeek 配置。</p>
-            )}
-          </div>
-
-          <label className="field">
-            <span>银行渠道</span>
-            <select value={channel} onChange={(event) => setChannel(event.target.value)}>
-              {channels.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className="field">
-            <span>客户风险偏好</span>
-            <select value={riskPreference} onChange={(event) => setRiskPreference(event.target.value)}>
-              {riskPreferences.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className="field">
-            <span>基金类型筛选</span>
-            <select value={fundTypeFilter} onChange={(event) => setFundTypeFilter(event.target.value)}>
-              {fundTypes.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className="field">
-            <span>推荐数量：{topK}</span>
-            <input
-              type="range"
-              min="3"
-              max="10"
-              value={topK}
-              onChange={(event) => setTopK(Number(event.target.value))}
+          <div className="space-y-4">
+            <ControlPanel
+              hotspot={hotspot}
+              channel={channel}
+              riskPreference={riskPreference}
+              fundTypeFilter={fundTypeFilter}
+              topK={topK}
+              channels={options?.channels ?? ["招商银行", "工商银行", "建设银行", "农业银行"]}
+              riskPreferences={options?.risk_preferences ?? ["稳健型", "平衡型", "进取型"]}
+              fundTypes={options?.fund_type_filters ?? ["全部", "权益", "指数", "ETF联接", "固收+", "红利低波"]}
+              loading={loading}
+              error={error}
+              onHotspotChange={setHotspot}
+              onChannelChange={setChannel}
+              onRiskPreferenceChange={setRiskPreference}
+              onFundTypeFilterChange={setFundTypeFilter}
+              onTopKChange={setTopK}
+              onSubmit={handleSubmit}
             />
-          </label>
-
-          <button className="primary-action" disabled={loading || !hotspot.trim()}>
-            {loading ? "分析中..." : "开始分析"}
-          </button>
-        </form>
-
-        <div className="sync-panel">
-          <button type="button" onClick={handleFundSync} disabled={fundSyncing}>
-            {fundSyncing ? "同步中..." : "同步真实基金池"}
-          </button>
-          <p>{fundSyncMessage || "来源：天天基金 / 东方财富公开数据"}</p>
-        </div>
-
-        {error && (
-          <div className="error-box">
-            <AlertTriangle size={16} />
-            <span>{error}</span>
+            <FundPoolStatusCard
+              status={fundStatus}
+              syncing={fundSyncing}
+              message={fundSyncMessage}
+              onSync={handleFundSync}
+            />
+            <AgentPipelineStatus hasResult={Boolean(result)} loading={loading} />
           </div>
-        )}
-      </aside>
+        </aside>
 
-      <section className="workspace">
-        <header className="dashboard-header">
-          <div>
-            <p className="eyebrow">Bank Channel Advisor Dashboard</p>
-            <h2>AI热点驱动的基金智能选品与营销生成平台</h2>
-            <p>面向银行渠道销售的热点识别、基金匹配与营销内容生成 Agent</p>
-          </div>
-          <div className="header-actions">
-            <span>今日市场热度 {heatScore || "--"}</span>
-            <span>更新 {updatedTime}</span>
-            <button type="button">生成报告</button>
-          </div>
-        </header>
+        <section className="p-4 md:p-6">
+          <header className="mb-5 flex flex-col justify-between gap-4 rounded-lg border bg-card p-5 shadow-panel lg:flex-row lg:items-center">
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="info">DeepSeek</Badge>
+                <Badge variant="success">公开基金池</Badge>
+                <Badge variant="warning">推导字段已标记</Badge>
+              </div>
+              <h1 className="text-2xl font-semibold tracking-normal md:text-3xl">
+                AI热点驱动的基金智能选品与营销生成平台
+              </h1>
+              <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+                当前页面把系统初筛拆成数据来源、打分逻辑、渠道文案和合规结果，避免让候选基金看起来像 AI 直接拍脑袋。
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-right text-sm">
+              <HeaderMetric label="基金池" value={fundStatus?.total_count ? fundStatus.total_count.toLocaleString("zh-CN") : "--"} />
+              <HeaderMetric label="增强" value={fundStatus?.enriched_count ? String(fundStatus.enriched_count) : "--"} />
+              <HeaderMetric label="热点更新" value={updatedTime} />
+            </div>
+          </header>
 
-        {!result && (
-          <div className="empty-state">
-            <BarChart3 size={36} />
-            <h2>等待生成推荐结果</h2>
-            <p>今日热点来自真实新闻源，经 DeepSeek 聚合后生成。</p>
-          </div>
-        )}
+          {!result && (
+            <PreAnalysisDashboard
+              hotspot={hotspot}
+              channel={channel}
+              riskPreference={riskPreference}
+              fundTypeFilter={fundTypeFilter}
+              topK={topK}
+              todayHotspots={todayHotspots}
+              hotspotsLoading={hotspotsLoading}
+              updatedTime={updatedTime}
+              fundStatus={fundStatus}
+              fundSummary={fundSummary}
+              onHotspotSelect={setHotspot}
+            />
+          )}
 
-        {result && (
-          <>
-            <section className="kpi-grid">
-              <div className="kpi-card">
-                <span>今日热点热度分</span>
-                <strong>{heatScore || "--"}</strong>
-                <p>{result.hotspot_analysis.hotspot}</p>
-              </div>
-              <div className="kpi-card">
-                <span>匹配基金数量</span>
-                <strong>{result.recommended_funds.length}</strong>
-                <p>当前筛选池</p>
-              </div>
-              <div className="kpi-card">
-                <span>推荐渠道</span>
-                <strong>{result.channel_strategy.channel}</strong>
-                <p>{riskPreference}</p>
-              </div>
-              <div className="kpi-card">
-                <span>生成文案数量</span>
-                <strong>{copyCount}</strong>
-                <p>话术 / 长文 / 社媒 / 风险提示</p>
-              </div>
-            </section>
+          {result && (
+            <div className="space-y-5">
+              <ReviewActions result={result} />
 
-            <section className="analysis-grid">
-              <div className="section-block">
-                <div className="section-title">
-                  <Sparkles size={18} />
-                  <h2>热点主题分析</h2>
-                </div>
-                <p className="summary-text">{result.hotspot_analysis.summary}</p>
-                {selectedHotspot && <p className="source-text">热点来源：{selectedHotspot.source}；{selectedHotspot.summary}</p>}
-                <div className="tag-row">
-                  {result.hotspot_analysis.themes.map((theme) => (
-                    <span key={theme} className="tag">{theme}</span>
-                  ))}
-                </div>
-                <div className="evidence-grid compact">
-                  <div>
-                    <span>相关行业</span>
-                    <p>{result.hotspot_analysis.industries.join(" / ")}</p>
-                  </div>
-                  <div>
-                    <span>主要风险</span>
-                    <p>{result.hotspot_analysis.risks[0]}</p>
-                  </div>
-                </div>
-              </div>
+              <section className="grid gap-4 lg:grid-cols-5">
+                <KpiCard title="热点" value={result.hotspot_analysis.hotspot} detail={selectedHotspot?.summary ?? result.hotspot_analysis.summary} />
+                <KpiCard title="候选基金" value={String(result.recommended_funds.length)} detail="通过 P0 初筛" />
+                <KpiCard title="已筛基金" value={String(result.screened_count)} detail={`${result.excluded_count} 只被拦截`} />
+                <KpiCard title="渠道" value={result.channel_strategy.channel} detail={riskPreference} />
+                <KpiCard title="合规" value={result.compliance.passed ? "通过" : "需复核"} detail="基础规则检查" />
+              </section>
 
-              <div className="section-block">
-                <div className="section-title">
-                  <LineChart size={18} />
-                  <h2>主题热度趋势</h2>
-                </div>
-                <div className="trend-chart">
-                  {trendBars.map((value, index) => (
-                    <div key={`${value}-${index}`} className="trend-column">
-                      <div style={{ height: `${value}%` }} />
-                      <span>D-{6 - index}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            <section className="section-block">
-              <div className="section-title">
-                <BarChart3 size={18} />
-                <h2>推荐基金 Top {result.recommended_funds.length}</h2>
-              </div>
-              <FundRankingTable
-                funds={result.recommended_funds}
-                selectedFundCode={selectedFund?.fund_code ?? ""}
-                onSelect={setSelectedFundCode}
-              />
-            </section>
-
-            {selectedFund && (
-              <section className="two-column">
-                <div className="section-block">
-                  <div className="section-title">
-                    <CheckCircle2 size={18} />
-                    <h2>分数拆解</h2>
-                  </div>
-                  <ScoreBreakdown fund={selectedFund} />
+              <section className="grid gap-5 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+                <div className="space-y-5">
+                  <FundRankingTable
+                    funds={result.recommended_funds}
+                    selectedFundCode={selectedFund?.fund_code ?? ""}
+                    onSelect={setSelectedFundCode}
+                  />
+                  <ExcludedFundsPanel funds={result.excluded_funds} />
+                  {selectedFund && <ScoreBreakdown fund={selectedFund} />}
                 </div>
 
-                <div className="section-block">
-                  <div className="section-title">
-                    <FileText size={18} />
-                    <h2>推荐解释</h2>
-                  </div>
-                  <div className="text-stack">
-                    <p>{selectedFund.reason}</p>
-                    <p>{selectedFund.risk_warning}</p>
-                    <p>适合：{selectedFund.suitable_clients}</p>
-                    <p>不适合：{selectedFund.unsuitable_clients}</p>
-                  </div>
+                <div className="space-y-5">
+                  <HotspotAnalysisCard response={result} selectedHotspot={selectedHotspot} />
+                  {selectedFund && <FundEvidencePanel fund={selectedFund} />}
                 </div>
               </section>
-            )}
 
-            <section className="two-column wide">
-              <MarketingCopyPanel copy={result.marketing_copy} strategy={result.channel_strategy} />
-              <CompliancePanel compliance={result.compliance} />
-            </section>
-
-            {selectedFund && (
-              <section className="section-block">
-                <div className="section-title">
-                  <CheckCircle2 size={18} />
-                  <h2>推荐依据拆解</h2>
-                </div>
-                <div className="evidence-grid">
-                  <div>
-                    <span>热点关键词</span>
-                    <p>{result.hotspot_analysis.keywords.slice(0, 6).join(" / ")}</p>
-                  </div>
-                  <div>
-                    <span>基金匹配标签</span>
-                    <p>{selectedFund.matched_tags.join(" / ")}</p>
-                  </div>
-                  <div>
-                    <span>渠道客户特征</span>
-                    <p>{result.channel_strategy.client_profile.join(" / ")}</p>
-                  </div>
-                  <div>
-                    <span>风险适配</span>
-                    <p>{riskPreference}；{selectedFund.risk_warning}</p>
-                  </div>
-                </div>
+              <section className="grid gap-5 xl:grid-cols-2">
+                <MarketingCopyPanel copy={result.marketing_copy} strategy={result.channel_strategy} />
+                <CompliancePanel compliance={result.compliance} />
               </section>
-            )}
-          </>
-        )}
-      </section>
+
+              {selectedFund && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2">
+                      <ShieldCheck size={18} />
+                      适当性边界
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid gap-3 md:grid-cols-2">
+                    <BoundaryBlock title="适合客户" text={selectedFund.suitable_clients} />
+                    <BoundaryBlock title="不适合客户" text={selectedFund.unsuitable_clients} />
+                    <BoundaryBlock title="风险提示" text={selectedFund.risk_warning} />
+                    <BoundaryBlock title="渠道表达重点" text={result.channel_strategy.messaging_focus.join(" / ")} />
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
     </main>
   );
+}
+
+function HeaderMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border bg-background px-3 py-2">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 font-semibold">{value}</div>
+    </div>
+  );
+}
+
+function KpiCard({ title, value, detail }: { title: string; value: string; detail: string }) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="text-xs text-muted-foreground">{title}</div>
+        <div className="mt-2 truncate text-xl font-semibold">{value}</div>
+        <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{detail}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function HotspotAnalysisCard({
+  response,
+  selectedHotspot,
+}: {
+  response: CampaignResponse;
+  selectedHotspot?: TodayHotspot;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2">
+          <LineChart size={18} />
+          热点主题分析
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm leading-6 text-muted-foreground">{response.hotspot_analysis.summary}</p>
+        {selectedHotspot && (
+          <div className="rounded-md border bg-background p-3">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <Badge variant="success">{selectedHotspot.source}</Badge>
+              <Badge variant="info">AI提炼</Badge>
+            </div>
+            <p className="text-sm leading-6 text-muted-foreground">
+              新闻来源摘要：{selectedHotspot.summary}
+            </p>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              {selectedHotspot.source_detail || "热点由公开新闻标题提炼，需结合投研和合规人工复核。"}
+            </p>
+            {(selectedHotspot.evidence_headlines?.length ?? 0) > 0 && (
+              <div className="mt-3 space-y-2">
+                <div className="text-xs font-medium text-foreground">证据标题</div>
+                {selectedHotspot.evidence_headlines?.map((headline) => (
+                  <div key={`${headline.title}-${headline.source}`} className="rounded-md border px-3 py-2">
+                    <p className="line-clamp-2 text-xs leading-5 text-foreground">{headline.title}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {headline.source}
+                      {headline.published_at ? ` / ${formatDateTime(headline.published_at)}` : ""}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        <TagBlock title="主题标签" items={response.hotspot_analysis.themes} />
+        <TagBlock title="相关行业" items={response.hotspot_analysis.industries} />
+        <TagBlock title="关键词" items={response.hotspot_analysis.keywords} />
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+          <div className="mb-1 flex items-center gap-2 text-sm font-medium text-amber-950">
+            <FileText size={15} />
+            主要风险
+          </div>
+          <p className="text-sm leading-6 text-amber-900">{response.hotspot_analysis.risks.join(" / ")}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TagBlock({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="space-y-2">
+      <div className="text-sm font-medium">{title}</div>
+      <div className="flex flex-wrap gap-1.5">
+        {items.map((item) => (
+          <Badge key={item} variant="muted">
+            {item}
+          </Badge>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BoundaryBlock({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="rounded-md border bg-background p-3">
+      <div className="mb-1 text-sm font-medium">{title}</div>
+      <p className="text-sm leading-6 text-muted-foreground">{text}</p>
+    </div>
+  );
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
