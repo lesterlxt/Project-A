@@ -31,6 +31,16 @@ export function FundEvidencePanel({ fund }: Props) {
           <EvidenceItem label="缺失字段数" value={String(fund.missing_fields.length)} source="calculated" />
         </div>
 
+        <EvidenceGroup title="同类比较">
+          <EvidenceItem label="比较分组" value={fund.compare_group} source="inferred" />
+          <EvidenceItem
+            label="同组排名"
+            value={fund.category_rank ? `${fund.category_rank}/${fund.category_total}` : "暂无"}
+            source="calculated"
+          />
+          <TextBox title="分组依据" source="inferred" text={fund.category_reason} />
+        </EvidenceGroup>
+
         {!fund.is_eligible && fund.exclusion_reasons.length > 0 && (
           <TextBox
             title="排除原因"
@@ -92,6 +102,26 @@ export function FundEvidencePanel({ fund }: Props) {
           </div>
           <p className="text-sm leading-6 text-muted-foreground">{fund.reason}</p>
         </div>
+
+        {fund.explanation_points.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-sm font-medium">解释证据链</div>
+            <div className="space-y-2">
+              {fund.explanation_points.map((point) => (
+                <div key={`${point.label}-${point.text}`} className="rounded-md border bg-background p-3">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-sm font-medium">{point.label}</div>
+                    <SourceBadge source={point.source} />
+                  </div>
+                  <p className="text-sm leading-6 text-muted-foreground">{point.text}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    依据字段：{point.evidence_fields.join(" / ")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

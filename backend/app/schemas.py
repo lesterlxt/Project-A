@@ -95,10 +95,22 @@ class ScoreBreakdown(BaseModel):
     compliance_penalty: float
 
 
+class ExplanationPoint(BaseModel):
+    label: str
+    text: str
+    evidence_fields: list[str]
+    source: str
+
+
 class RecommendedFund(BaseModel):
     fund_code: str
     fund_name: str
     fund_type: str
+    fund_category: str
+    compare_group: str
+    category_reason: str
+    category_rank: int = 0
+    category_total: int = 0
     manager: str
     latest_nav: str
     estimated_growth: str
@@ -114,6 +126,7 @@ class RecommendedFund(BaseModel):
     is_enriched: bool
     score: float
     score_breakdown: ScoreBreakdown
+    explanation_points: list[ExplanationPoint] = Field(default_factory=list)
     matched_tags: list[str]
     reason: str
     suitable_clients: str

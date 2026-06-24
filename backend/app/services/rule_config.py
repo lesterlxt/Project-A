@@ -38,6 +38,10 @@ class RuleConfig:
         return self.data["fund_type_filter_rules"]
 
     @property
+    def fund_category_rules(self) -> list[dict[str, Any]]:
+        return self.data["fund_category_rules"]
+
+    @property
     def channel_risk_scores(self) -> dict[str, dict[str, int]]:
         return self.data["channel_risk_scores"]
 

@@ -54,6 +54,7 @@ class EastmoneyFundDataProvider:
         base_rows = [self._base_row(candidate) for candidate in selected]
         DB_PATH.parent.mkdir(parents=True, exist_ok=True)
         self._write_sqlite(base_rows)
+        self.stock_industry_mapper.ensure_seed_table()
 
         # ---- Phase 2: parallel enrichment (thread pool) ----
         enrich_candidates = selected[:enrich_limit]
@@ -116,6 +117,7 @@ class EastmoneyFundDataProvider:
             "positioning": ";".join(self._positioning(candidate)),
             "top_holdings": "",
             "industry_allocation": "",
+            "industry_allocation_source": "",
             "one_year_return": "",
             "volatility": "",
             "max_drawdown": "",
@@ -193,7 +195,7 @@ class EastmoneyFundDataProvider:
         )
 
         # Prefer real stock-code industry mappings when the optional mapping table is available.
-        industry_allocation = self._derive_industry_allocation(
+        industry_allocation, industry_allocation_source = self._derive_industry_allocation(
             candidate.name, candidate.fund_type, stock_codes
         )
 
@@ -214,6 +216,7 @@ class EastmoneyFundDataProvider:
                     industry_allocation.items(), key=lambda kv: kv[1], reverse=True
                 )[:8]
             ),
+            "industry_allocation_source": industry_allocation_source,
             "one_year_return": self._percent(one_year_return),
             "volatility": self._percent(volatility),
             "max_drawdown": self._percent(max_drawdown),
@@ -319,15 +322,15 @@ class EastmoneyFundDataProvider:
 
     def _derive_industry_allocation(
         self, fund_name: str, fund_type: str, stock_codes: list[str]
-    ) -> dict[str, float]:
+    ) -> tuple[dict[str, float], str]:
         """
         Derive industry allocation from fund name, type, and known theme keywords.
         This is an approximation — for production use, cross-reference stock codes
         with Shenwan industry classification data.
         """
-        mapped_alloc = self.stock_industry_mapper.aggregate_by_holding_count(stock_codes)
+        mapped_alloc, mapped_source = self.stock_industry_mapper.aggregate_by_holding_count(stock_codes)
         if mapped_alloc:
-            return mapped_alloc
+            return mapped_alloc, mapped_source
 
         alloc: dict[str, float] = {}
         text = f"{fund_name} {fund_type}"
@@ -345,7 +348,7 @@ class EastmoneyFundDataProvider:
             if total > 0:
                 alloc = {k: min(v, 45.0) for k, v in alloc.items()}
 
-        return alloc
+        return alloc, "keyword_inferred" if alloc else ""
 
     def _latest_stock_ratio(self, asset_alloc: Any) -> float | None:
         """Extract the latest stock ratio from asset allocation data."""
@@ -405,6 +408,7 @@ class EastmoneyFundDataProvider:
             "positioning",
             "top_holdings",
             "industry_allocation",
+            "industry_allocation_source",
             "one_year_return",
             "volatility",
             "max_drawdown",
@@ -428,6 +432,7 @@ class EastmoneyFundDataProvider:
                     positioning TEXT,
                     top_holdings TEXT,
                     industry_allocation TEXT,
+                    industry_allocation_source TEXT,
                     one_year_return TEXT,
                     volatility TEXT,
                     max_drawdown TEXT,
@@ -441,6 +446,7 @@ class EastmoneyFundDataProvider:
                 )
                 """
             )
+            self._ensure_column(connection, "funds", "industry_allocation_source", "TEXT")
             connection.execute("DELETE FROM funds")
             placeholders = ",".join("?" for _ in columns)
             connection.executemany(
@@ -463,6 +469,7 @@ class EastmoneyFundDataProvider:
             "manager",
             "top_holdings",
             "industry_allocation",
+            "industry_allocation_source",
             "one_year_return",
             "volatility",
             "max_drawdown",
@@ -477,6 +484,7 @@ class EastmoneyFundDataProvider:
         set_clause = ",".join(f"{col}=?" for col in enrich_columns)
 
         with sqlite3.connect(DB_PATH) as connection:
+            self._ensure_column(connection, "funds", "industry_allocation_source", "TEXT")
             connection.executemany(
                 f"UPDATE funds SET {set_clause} WHERE fund_code=?",
                 [
@@ -484,6 +492,17 @@ class EastmoneyFundDataProvider:
                     for row in enriched_rows
                 ],
             )
+
+    def _ensure_column(
+        self,
+        connection: sqlite3.Connection,
+        table: str,
+        column: str,
+        definition: str,
+    ) -> None:
+        columns = {row[1] for row in connection.execute(f"PRAGMA table_info({table})").fetchall()}
+        if column not in columns:
+            connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
 # ------------------------------------------------------------------

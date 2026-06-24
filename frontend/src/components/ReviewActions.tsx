@@ -54,6 +54,8 @@ function buildReviewMarkdown(result: CampaignResponse) {
 - 匹配分: ${fund.score}
 - 数据质量分: ${fund.data_quality_score.toFixed(1)}/100
 - 类型: ${fund.fund_type}
+- 比较分组: ${fund.compare_group}
+- 同组排名: ${fund.category_rank ? `${fund.category_rank}/${fund.category_total}` : "暂无"}
 - 基金经理: ${fund.manager || "未知"}
 - 风险等级: ${fund.risk_level} (${fund.field_sources.risk_level})
 - 近一年收益: ${formatValue(fund.one_year_return, "%")} (${fund.field_sources.one_year_return})
@@ -63,6 +65,8 @@ function buildReviewMarkdown(result: CampaignResponse) {
 - 缺失字段: ${fund.missing_fields.join(" / ") || "无"}
 - 初筛理由: ${fund.reason}
 - 风险提示: ${fund.risk_warning}
+- 解释证据:
+${fund.explanation_points.map((point) => `  - ${point.label}: ${point.text} [${point.source}; ${point.evidence_fields.join(" / ")}]`).join("\n") || "  - 无"}
 `,
     )
     .join("\n");
@@ -74,6 +78,7 @@ function buildReviewMarkdown(result: CampaignResponse) {
 
 - 数据质量分: ${fund.data_quality_score.toFixed(1)}/100
 - 类型: ${fund.fund_type}
+- 比较分组: ${fund.compare_group}
 - 风险等级: ${fund.risk_level}
 - 排除原因: ${fund.exclusion_reasons.join(" / ") || "未返回"}
 - 缺失字段: ${fund.missing_fields.join(" / ") || "无"}

@@ -78,10 +78,22 @@ export type ScoreBreakdown = {
   compliance_penalty: number;
 };
 
+export type ExplanationPoint = {
+  label: string;
+  text: string;
+  evidence_fields: string[];
+  source: string;
+};
+
 export type RecommendedFund = {
   fund_code: string;
   fund_name: string;
   fund_type: string;
+  fund_category: string;
+  compare_group: string;
+  category_reason: string;
+  category_rank: number;
+  category_total: number;
   manager: string;
   latest_nav: string;
   estimated_growth: string;
@@ -97,6 +109,7 @@ export type RecommendedFund = {
   is_enriched: boolean;
   score: number;
   score_breakdown: ScoreBreakdown;
+  explanation_points: ExplanationPoint[];
   matched_tags: string[];
   reason: string;
   suitable_clients: string;

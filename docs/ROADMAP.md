@@ -185,13 +185,19 @@ Formula: performance_stability = base_score - volatility_penalty - drawdown_pena
 
 Goal: make scores closer to financial product research.
 
-Build:
+Initial implementation:
 
 - category buckets: money market, bond, mixed, equity, index, QDII, FOF;
+- same-category rank fields;
+- stock-industry mapping table shape plus a small source-labeled seed set;
+- explanation points that reference fields and sources.
+
+Remaining refinements:
+
 - same-category score normalization;
-- stock-industry mapping table;
+- full real stock-industry data import;
 - holding-weight-based industry exposure when holdings weights are available;
-- explanation text that references fields and sources.
+- backend-driven score formula metadata for every score component.
 
 Frontend should show:
 

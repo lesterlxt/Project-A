@@ -99,6 +99,50 @@
       "positioning_any": []
     }
   },
+  "fund_category_rules": [
+    {
+      "category": "money_market",
+      "label": "货币型基金",
+      "contains": ["货币型", "同业存单"],
+      "reason": "基金类型包含货币型或同业存单，主要用于现金管理和低波动配置。"
+    },
+    {
+      "category": "bond",
+      "label": "债券型基金",
+      "contains": ["债券型", "纯债", "偏债", "混合型-偏债"],
+      "reason": "基金类型包含债券、纯债或偏债，主要与固收资产比较。"
+    },
+    {
+      "category": "qdii",
+      "label": "QDII基金",
+      "contains": ["QDII", "海外"],
+      "reason": "基金类型包含 QDII 或海外，涉及境外市场和汇率风险，应单独比较。"
+    },
+    {
+      "category": "fof",
+      "label": "FOF基金",
+      "contains": ["FOF"],
+      "reason": "基金类型包含 FOF，底层投资其他基金，应单独比较。"
+    },
+    {
+      "category": "index",
+      "label": "指数型基金",
+      "contains": ["指数", "ETF", "联接", "LOF"],
+      "reason": "基金类型包含指数、ETF、联接或 LOF，更适合与同类指数产品比较。"
+    },
+    {
+      "category": "equity",
+      "label": "权益型基金",
+      "contains": ["股票型", "偏股", "混合型-偏股"],
+      "reason": "基金类型偏权益资产，收益和波动应与权益类产品比较。"
+    },
+    {
+      "category": "mixed",
+      "label": "混合型基金",
+      "contains": ["混合型"],
+      "reason": "基金类型为混合型，股票和债券配置可能变化，应与混合型产品比较。"
+    }
+  ],
   "channel_risk_scores": {
     "招商银行": {"R1": 3, "R2": 6, "R3": 8, "R4": 9, "R5": 7},
     "工商银行": {"R1": 8, "R2": 9, "R3": 8, "R4": 6, "R5": 3},

@@ -30,6 +30,7 @@ export function ExcludedFundsPanel({ funds }: Props) {
                 <div className="mt-1 flex flex-wrap gap-1.5 text-xs text-muted-foreground">
                   <span>{fund.fund_code}</span>
                   <span>{fund.fund_type}</span>
+                  <span>{fund.compare_group}</span>
                   <span>{fund.risk_level}</span>
                 </div>
               </div>

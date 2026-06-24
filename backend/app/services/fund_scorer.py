@@ -1,10 +1,14 @@
-from app.schemas import ChannelStrategy, HotspotAnalysisResponse, RecommendedFund, ScoreBreakdown
 from app.agents.eligibility_agent import FundEligibility
+from app.agents.fund_category_agent import FundCategoryAgent
+from app.schemas import ChannelStrategy, ExplanationPoint, HotspotAnalysisResponse, RecommendedFund, ScoreBreakdown
 from app.services.fund_loader import Fund
 from app.services.rule_config import load_rule_config
 
 
 class FundScorer:
+    def __init__(self) -> None:
+        self.category_agent = FundCategoryAgent()
+
     def score(
         self,
         funds: list[FundEligibility],
@@ -17,8 +21,21 @@ class FundScorer:
             self._score_one(result, hotspot_analysis, channel_strategy, risk_preference)
             for result in funds
         ]
+        self._assign_category_ranks(scored)
         scored.sort(key=lambda item: item.score, reverse=True)
         return scored[:top_k]
+
+    def _assign_category_ranks(self, funds: list[RecommendedFund]) -> None:
+        groups: dict[str, list[RecommendedFund]] = {}
+        for fund in funds:
+            groups.setdefault(fund.fund_category, []).append(fund)
+
+        for group in groups.values():
+            group.sort(key=lambda item: item.score, reverse=True)
+            total = len(group)
+            for index, fund in enumerate(group, start=1):
+                fund.category_rank = index
+                fund.category_total = total
 
     def excluded(
         self,
@@ -101,11 +118,18 @@ class FundScorer:
 
         reason = self._build_reason(fund, hotspot_analysis, matched_tags)
         risk_warning = self._build_risk_warning(fund)
+        category = self.category_agent.classify(fund)
+        field_sources = self._field_sources(fund)
 
         return RecommendedFund(
             fund_code=fund.fund_code,
             fund_name=fund.fund_name,
             fund_type=fund.fund_type,
+            fund_category=category.category,
+            compare_group=category.label,
+            category_reason=category.reason,
+            category_rank=0,
+            category_total=0,
             manager=fund.manager,
             latest_nav=fund.latest_nav,
             estimated_growth=fund.estimated_growth,
@@ -121,12 +145,20 @@ class FundScorer:
             is_enriched=fund.is_enriched,
             score=total_score,
             score_breakdown=score_breakdown,
+            explanation_points=self._explanation_points(
+                fund=fund,
+                hotspot_analysis=hotspot_analysis,
+                matched_tags=sorted(set(matched_tags)),
+                category_label=category.label,
+                category_reason=category.reason,
+                field_sources=field_sources,
+            ),
             matched_tags=sorted(set(matched_tags)),
             reason=reason,
             suitable_clients=fund.suitable_clients,
             unsuitable_clients=self._unsuitable_clients(fund),
             risk_warning=risk_warning,
-            field_sources=self._field_sources(fund),
+            field_sources=field_sources,
             is_eligible=True,
             data_quality_score=eligibility.data_quality_score,
             missing_fields=eligibility.missing_fields,
@@ -140,10 +172,17 @@ class FundScorer:
     ) -> RecommendedFund:
         fund = eligibility.fund
         reason = "未进入候选池：" + "；".join(eligibility.exclusion_reasons)
+        category = self.category_agent.classify(fund)
+        field_sources = self._field_sources(fund)
         return RecommendedFund(
             fund_code=fund.fund_code,
             fund_name=fund.fund_name,
             fund_type=fund.fund_type,
+            fund_category=category.category,
+            compare_group=category.label,
+            category_reason=category.reason,
+            category_rank=0,
+            category_total=0,
             manager=fund.manager,
             latest_nav=fund.latest_nav,
             estimated_growth=fund.estimated_growth,
@@ -166,12 +205,20 @@ class FundScorer:
                 channel_match=0,
                 compliance_penalty=0,
             ),
+            explanation_points=[
+                ExplanationPoint(
+                    label="未进入候选池",
+                    text="；".join(eligibility.exclusion_reasons) or "未返回排除原因",
+                    evidence_fields=["data_quality_score", "risk_level", "missing_fields"],
+                    source="calculated",
+                )
+            ],
             matched_tags=self._matched_tags(fund, hotspot_analysis),
             reason=reason,
             suitable_clients=fund.suitable_clients,
             unsuitable_clients=self._unsuitable_clients(fund),
             risk_warning=self._build_risk_warning(fund),
-            field_sources=self._field_sources(fund),
+            field_sources=field_sources,
             is_eligible=False,
             data_quality_score=eligibility.data_quality_score,
             missing_fields=eligibility.missing_fields,
@@ -203,12 +250,101 @@ class FundScorer:
             "risk_level": "inferred",
             "suitable_clients": "inferred",
             "positioning": "inferred",
-            "industry_allocation": "inferred" if fund.industry_allocation else "missing",
+            "industry_allocation": self._industry_source(fund),
             "score": "calculated",
             "reason": "generated",
             "data_quality_score": "calculated",
             "exclusion_reasons": "calculated",
         }
+
+    def _industry_source(self, fund: Fund) -> str:
+        if not fund.industry_allocation:
+            return "missing"
+        if fund.industry_allocation_source == "mapped_from_stock_industry_map":
+            return "mapped"
+        if fund.industry_allocation_source == "keyword_inferred":
+            return "inferred"
+        return "inferred"
+
+    def _explanation_points(
+        self,
+        *,
+        fund: Fund,
+        hotspot_analysis: HotspotAnalysisResponse,
+        matched_tags: list[str],
+        category_label: str,
+        category_reason: str,
+        field_sources: dict[str, str],
+    ) -> list[ExplanationPoint]:
+        points = [
+            ExplanationPoint(
+                label="比较分组",
+                text=f"该基金归入{category_label}。{category_reason}",
+                evidence_fields=["fund_type"],
+                source=field_sources["fund_type"],
+            )
+        ]
+
+        if matched_tags:
+            points.append(
+                ExplanationPoint(
+                    label="主题匹配",
+                    text=f"命中热点相关标签：{'、'.join(matched_tags[:6])}。",
+                    evidence_fields=["matched_tags", "positioning", "fund_name", "fund_type"],
+                    source="inferred",
+                )
+            )
+        else:
+            points.append(
+                ExplanationPoint(
+                    label="主题匹配",
+                    text=f"未直接命中{hotspot_analysis.hotspot}的短标签，需要人工确认主题相关性。",
+                    evidence_fields=["matched_tags", "positioning", "fund_name", "fund_type"],
+                    source="missing",
+                )
+            )
+
+        if fund.industry_allocation:
+            industries = "、".join(
+                f"{name}{value:.0f}%"
+                for name, value in list(fund.industry_allocation.items())[:5]
+            )
+            source_text = "持仓代码行业映射" if field_sources["industry_allocation"] == "mapped" else "规则推导"
+            points.append(
+                ExplanationPoint(
+                    label="行业证据",
+                    text=f"行业配置显示：{industries}；来源为{source_text}。",
+                    evidence_fields=["industry_allocation", "top_holdings"],
+                    source=field_sources["industry_allocation"],
+                )
+            )
+
+        risk_parts = []
+        if fund.volatility is not None:
+            risk_parts.append(f"波动率{fund.volatility:.1f}%")
+        if fund.max_drawdown is not None:
+            risk_parts.append(f"最大回撤{fund.max_drawdown:.1f}%")
+        if fund.one_year_return is not None:
+            risk_parts.append(f"近一年收益{fund.one_year_return:.1f}%")
+        if risk_parts:
+            points.append(
+                ExplanationPoint(
+                    label="风险收益指标",
+                    text="，".join(risk_parts) + "。",
+                    evidence_fields=["one_year_return", "volatility", "max_drawdown"],
+                    source="calculated",
+                )
+            )
+
+        points.append(
+            ExplanationPoint(
+                label="适当性边界",
+                text=f"风险等级为{fund.risk_level}，适合客户口径为：{fund.suitable_clients}。",
+                evidence_fields=["risk_level", "suitable_clients"],
+                source="inferred",
+            )
+        )
+        return points
 
     def _performance_score(self, fund: Fund) -> float:
         if fund.volatility is None or fund.max_drawdown is None or fund.one_year_return is None:

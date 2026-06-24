@@ -430,9 +430,9 @@ P0:
 P1:
 
 ```text
-5. Fund-type bucketed scoring
-6. Real stock industry mapping table
-7. Recommendation explanation must cite field sources
+5. Fund-type bucketed scoring: initial category and same-group rank implemented
+6. Real stock industry mapping table: table shape and source-labeled seed implemented; full data import still needed
+7. Recommendation explanation must cite field sources: initial explanation_points implemented
 ```
 
 P2:

@@ -15,6 +15,7 @@ class Fund:
     positioning: list[str]
     top_holdings: list[str]
     industry_allocation: dict[str, float]
+    industry_allocation_source: str
     one_year_return: float | None
     volatility: float | None
     max_drawdown: float | None
@@ -62,8 +63,17 @@ class FundLoader:
     def _load_sqlite(self) -> list[Fund]:
         with sqlite3.connect(DB_PATH) as connection:
             connection.row_factory = sqlite3.Row
+            columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(funds)").fetchall()
+            }
+            industry_source_expr = (
+                "industry_allocation_source"
+                if "industry_allocation_source" in columns
+                else "'' AS industry_allocation_source"
+            )
             rows = connection.execute(
-                """
+                f"""
                 SELECT
                     fund_code,
                     fund_name,
@@ -72,6 +82,7 @@ class FundLoader:
                     positioning,
                     top_holdings,
                     industry_allocation,
+                    {industry_source_expr},
                     one_year_return,
                     volatility,
                     max_drawdown,
@@ -131,6 +142,7 @@ class FundLoader:
             positioning=_split_semicolon(row["positioning"]),
             top_holdings=_split_semicolon(row["top_holdings"]),
             industry_allocation=_parse_industry_allocation(row["industry_allocation"]),
+            industry_allocation_source=str(row.get("industry_allocation_source") or ""),
             one_year_return=_parse_percent(row["one_year_return"]),
             volatility=_parse_percent(row["volatility"]),
             max_drawdown=_parse_percent(row["max_drawdown"]),
