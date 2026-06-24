@@ -18,6 +18,10 @@ const variants: Record<string, "success" | "info" | "warning" | "muted"> = {
   missing: "muted",
 };
 
+export function sourceLabel(source: string) {
+  return sourceLabels[source] ?? source;
+}
+
 export function SourceBadge({ source }: { source: string }) {
-  return <Badge variant={variants[source] ?? "muted"}>{sourceLabels[source] ?? source}</Badge>;
+  return <Badge variant={variants[source] ?? "muted"}>{sourceLabel(source)}</Badge>;
 }

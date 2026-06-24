@@ -15,12 +15,20 @@ class HotspotAnalysisResponse(BaseModel):
     risks: list[str]
 
 
+class NewsEvidence(BaseModel):
+    title: str
+    source: str
+    published_at: str
+
+
 class HotspotItem(BaseModel):
     name: str
     heat_score: int
     summary: str
     related_keywords: list[str]
     source: str
+    source_detail: str = ""
+    evidence_headlines: list[NewsEvidence] = Field(default_factory=list)
 
 
 class TodayHotspotsResponse(BaseModel):
@@ -54,6 +62,20 @@ class FundPoolStatusResponse(BaseModel):
     enriched_count: int
     latest_updated_at: str | None
     db_path: str
+
+
+class DistributionItem(BaseModel):
+    label: str
+    count: int
+
+
+class FundPoolSummaryResponse(BaseModel):
+    available: bool
+    source: str
+    total_count: int
+    enriched_count: int
+    fund_type_distribution: list[DistributionItem]
+    risk_level_distribution: list[DistributionItem]
 
 
 class FundSyncDefaults(BaseModel):

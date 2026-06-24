@@ -22,6 +22,12 @@ export type TodayHotspot = {
   summary: string;
   related_keywords: string[];
   source: string;
+  source_detail: string;
+  evidence_headlines: {
+    title: string;
+    source: string;
+    published_at: string;
+  }[];
 };
 
 export type TodayHotspotsResponse = {
@@ -49,6 +55,20 @@ export type FundPoolStatus = {
   enriched_count: number;
   latest_updated_at: string | null;
   db_path: string;
+};
+
+export type DistributionItem = {
+  label: string;
+  count: number;
+};
+
+export type FundPoolSummary = {
+  available: boolean;
+  source: string;
+  total_count: number;
+  enriched_count: number;
+  fund_type_distribution: DistributionItem[];
+  risk_level_distribution: DistributionItem[];
 };
 
 export type AppOptions = {
@@ -199,6 +219,17 @@ export async function fetchFundPoolStatus(): Promise<FundPoolStatus> {
   if (!response.ok) {
     const message = await response.text();
     throw new Error(message || "基金池状态获取失败");
+  }
+
+  return response.json();
+}
+
+export async function fetchFundPoolSummary(): Promise<FundPoolSummary> {
+  const response = await fetch(`${API_BASE}/api/funds/summary`);
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "基金池摘要获取失败");
   }
 
   return response.json();

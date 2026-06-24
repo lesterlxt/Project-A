@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.agents.fund_data_agent import FundDataAgent
 from app.orchestrator.campaign_orchestrator import CampaignOrchestrator
-from app.schemas import AppOptionsResponse, CampaignRequest, CampaignResponse, FundPoolStatusResponse, FundSyncRequest, FundSyncResponse, HotspotAnalysisRequest, HotspotAnalysisResponse, TodayHotspotsResponse
+from app.schemas import AppOptionsResponse, CampaignRequest, CampaignResponse, FundPoolStatusResponse, FundPoolSummaryResponse, FundSyncRequest, FundSyncResponse, HotspotAnalysisRequest, HotspotAnalysisResponse, TodayHotspotsResponse
 from app.services.fund_data_provider import FundDataProviderError
 from app.services.hotspot_provider import HotspotProviderError, NewsHotspotProvider
 from app.services.llm_client import DeepSeekClient
@@ -67,6 +67,11 @@ def sync_funds(request: FundSyncRequest) -> FundSyncResponse:
 @app.get("/api/funds/status", response_model=FundPoolStatusResponse)
 def fund_pool_status() -> FundPoolStatusResponse:
     return FundPoolStatusResponse(**orchestrator.fund_loader.status())
+
+
+@app.get("/api/funds/summary", response_model=FundPoolSummaryResponse)
+def fund_pool_summary() -> FundPoolSummaryResponse:
+    return FundPoolSummaryResponse(**orchestrator.fund_loader.summary())
 
 
 @app.get("/api/options", response_model=AppOptionsResponse)

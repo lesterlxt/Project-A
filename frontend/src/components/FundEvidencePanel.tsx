@@ -58,6 +58,8 @@ export function FundEvidencePanel({ fund }: Props) {
         )}
 
         <EvidenceGroup title="真实接口数据">
+          <EvidenceItem label="数据来源" value={fund.data_source || "暂无"} source="raw" />
+          <EvidenceItem label="更新时间" value={formatDateTime(fund.data_updated_at)} source="raw" />
           <EvidenceItem label="基金代码" value={fund.fund_code} source={fund.field_sources.fund_code} />
           <EvidenceItem label="基金名称" value={fund.fund_name} source={fund.field_sources.fund_name} />
           <EvidenceItem label="基金类型" value={fund.fund_type} source={fund.field_sources.fund_type} />
@@ -163,4 +165,16 @@ function TextBox({ title, text, source }: { title: string; text: string; source:
 function formatPercent(value: number | null) {
   if (value === null) return "暂无";
   return `${value.toFixed(2)}%`;
+}
+
+function formatDateTime(value: string) {
+  if (!value) return "暂无";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }

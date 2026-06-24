@@ -1,12 +1,14 @@
-import { BarChart3, FileText, LineChart, ShieldCheck } from "lucide-react";
+import { FileText, LineChart, ShieldCheck } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   AppOptions,
   CampaignResponse,
   FundPoolStatus,
+  FundPoolSummary,
   RecommendedFund,
   TodayHotspot,
   fetchAppOptions,
+  fetchFundPoolSummary,
   fetchFundPoolStatus,
   fetchTodayHotspots,
   runCampaign,
@@ -20,6 +22,7 @@ import { FundEvidencePanel } from "../components/FundEvidencePanel";
 import { FundPoolStatusCard } from "../components/FundPoolStatusCard";
 import { FundRankingTable } from "../components/FundRankingTable";
 import { MarketingCopyPanel } from "../components/MarketingCopyPanel";
+import { PreAnalysisDashboard } from "../components/PreAnalysisDashboard";
 import { ReviewActions } from "../components/ReviewActions";
 import { ScoreBreakdown } from "../components/ScoreBreakdown";
 import { Badge } from "../components/ui/badge";
@@ -37,6 +40,7 @@ export function CampaignWorkbench() {
   const [hotspotsUpdatedAt, setHotspotsUpdatedAt] = useState("");
   const [hotspotsLoading, setHotspotsLoading] = useState(false);
   const [fundStatus, setFundStatus] = useState<FundPoolStatus | null>(null);
+  const [fundSummary, setFundSummary] = useState<FundPoolSummary | null>(null);
   const [options, setOptions] = useState<AppOptions | null>(null);
   const [fundSyncing, setFundSyncing] = useState(false);
   const [fundSyncMessage, setFundSyncMessage] = useState("");
@@ -81,6 +85,14 @@ export function CampaignWorkbench() {
       })
       .catch(() => {
         if (active) setFundStatus(null);
+      });
+
+    fetchFundPoolSummary()
+      .then((response) => {
+        if (active) setFundSummary(response);
+      })
+      .catch(() => {
+        if (active) setFundSummary(null);
       });
 
     return () => {
@@ -131,6 +143,8 @@ export function CampaignWorkbench() {
       setFundSyncMessage(`已同步 ${response.synced_count} 只基金，增强 ${response.enriched_count} 只。`);
       const status = await fetchFundPoolStatus();
       setFundStatus(status);
+      const summary = await fetchFundPoolSummary();
+      setFundSummary(summary);
     } catch (err) {
       setError(err instanceof Error ? err.message : "基金池同步失败");
     } finally {
@@ -161,9 +175,6 @@ export function CampaignWorkbench() {
               channels={options?.channels ?? ["招商银行", "工商银行", "建设银行", "农业银行"]}
               riskPreferences={options?.risk_preferences ?? ["稳健型", "平衡型", "进取型"]}
               fundTypes={options?.fund_type_filters ?? ["全部", "权益", "指数", "ETF联接", "固收+", "红利低波"]}
-              todayHotspots={todayHotspots}
-              hotspotsLoading={hotspotsLoading}
-              updatedTime={updatedTime}
               loading={loading}
               error={error}
               onHotspotChange={setHotspot}
@@ -206,15 +217,19 @@ export function CampaignWorkbench() {
           </header>
 
           {!result && (
-            <Card>
-              <CardContent className="flex min-h-[420px] flex-col items-center justify-center gap-3 text-center">
-                <BarChart3 size={40} className="text-muted-foreground" />
-                <div className="text-lg font-semibold">等待生成初筛结果</div>
-                <p className="max-w-md text-sm leading-6 text-muted-foreground">
-                  左侧选择热点、渠道和风险偏好后开始分析。结果会按真实接口、系统计算、规则推导和 AI 生成分区展示，并标出被拦截的基金原因。
-                </p>
-              </CardContent>
-            </Card>
+            <PreAnalysisDashboard
+              hotspot={hotspot}
+              channel={channel}
+              riskPreference={riskPreference}
+              fundTypeFilter={fundTypeFilter}
+              topK={topK}
+              todayHotspots={todayHotspots}
+              hotspotsLoading={hotspotsLoading}
+              updatedTime={updatedTime}
+              fundStatus={fundStatus}
+              fundSummary={fundSummary}
+              onHotspotSelect={setHotspot}
+            />
           )}
 
           {result && (
@@ -314,9 +329,32 @@ function HotspotAnalysisCard({
       <CardContent className="space-y-4">
         <p className="text-sm leading-6 text-muted-foreground">{response.hotspot_analysis.summary}</p>
         {selectedHotspot && (
-          <p className="rounded-md border bg-background p-3 text-sm leading-6 text-muted-foreground">
-            新闻来源摘要：{selectedHotspot.summary}
-          </p>
+          <div className="rounded-md border bg-background p-3">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <Badge variant="success">{selectedHotspot.source}</Badge>
+              <Badge variant="info">AI提炼</Badge>
+            </div>
+            <p className="text-sm leading-6 text-muted-foreground">
+              新闻来源摘要：{selectedHotspot.summary}
+            </p>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              {selectedHotspot.source_detail || "热点由公开新闻标题提炼，需结合投研和合规人工复核。"}
+            </p>
+            {(selectedHotspot.evidence_headlines?.length ?? 0) > 0 && (
+              <div className="mt-3 space-y-2">
+                <div className="text-xs font-medium text-foreground">证据标题</div>
+                {selectedHotspot.evidence_headlines?.map((headline) => (
+                  <div key={`${headline.title}-${headline.source}`} className="rounded-md border px-3 py-2">
+                    <p className="line-clamp-2 text-xs leading-5 text-foreground">{headline.title}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {headline.source}
+                      {headline.published_at ? ` / ${formatDateTime(headline.published_at)}` : ""}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
         <TagBlock title="主题标签" items={response.hotspot_analysis.themes} />
         <TagBlock title="相关行业" items={response.hotspot_analysis.industries} />
@@ -355,4 +393,15 @@ function BoundaryBlock({ title, text }: { title: string; text: string }) {
       <p className="text-sm leading-6 text-muted-foreground">{text}</p>
     </div>
   );
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }

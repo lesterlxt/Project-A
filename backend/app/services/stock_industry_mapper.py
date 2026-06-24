@@ -19,34 +19,12 @@ class StockIndustryMapper:
             updated_at TEXT
         )
 
-    The table is intentionally not auto-filled with fake data. When it is absent
+    The table is intentionally not auto-filled with demo data. When it is absent
     or incomplete, callers should keep the industry field marked as inferred.
     """
 
-    SEED_MAPPINGS = [
-        ("300308", "中际旭创", "通信", "manual_seed"),
-        ("300502", "新易盛", "通信", "manual_seed"),
-        ("688256", "寒武纪", "计算机", "manual_seed"),
-        ("601138", "工业富联", "电子", "manual_seed"),
-        ("688981", "中芯国际", "电子", "manual_seed"),
-        ("002371", "北方华创", "电子", "manual_seed"),
-        ("600276", "恒瑞医药", "医药生物", "manual_seed"),
-        ("300760", "迈瑞医疗", "医药生物", "manual_seed"),
-        ("600900", "长江电力", "公用事业", "manual_seed"),
-        ("601398", "工商银行", "银行", "manual_seed"),
-        ("600941", "中国移动", "通信", "manual_seed"),
-        ("601088", "中国神华", "煤炭", "manual_seed"),
-        ("300750", "宁德时代", "电力设备", "manual_seed"),
-        ("002594", "比亚迪", "汽车", "manual_seed"),
-        ("600519", "贵州茅台", "食品饮料", "manual_seed"),
-    ]
-
-    def ensure_seed_table(self) -> None:
-        """Create a small explicit mapping table for demo coverage.
-
-        This seed is intentionally small and source-labeled. It is not a
-        production industry database.
-        """
+    def ensure_table(self) -> None:
+        """Create the optional real industry mapping table without seed rows."""
         if not DB_PATH.exists():
             return
 
@@ -62,13 +40,8 @@ class StockIndustryMapper:
                 )
                 """
             )
-            connection.executemany(
-                """
-                INSERT OR IGNORE INTO stock_industry_map
-                    (stock_code, stock_name, industry, source)
-                VALUES (?, ?, ?, ?)
-                """,
-                self.SEED_MAPPINGS,
+            connection.execute(
+                "DELETE FROM stock_industry_map WHERE source = 'manual_seed'"
             )
 
     def aggregate_by_holding_count(self, stock_codes: list[str]) -> tuple[dict[str, float], str]:
@@ -86,6 +59,7 @@ class StockIndustryMapper:
                 WHERE stock_code IN ({placeholders})
                   AND industry IS NOT NULL
                   AND industry != ''
+                  AND COALESCE(source, '') != 'manual_seed'
                 GROUP BY industry
                 """,
                 normalized_codes,

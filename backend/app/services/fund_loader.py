@@ -133,6 +133,61 @@ class FundLoader:
             "db_path": str(DB_PATH),
         }
 
+    def summary(self) -> dict[str, object]:
+        if not DB_PATH.exists():
+            return {
+                "available": False,
+                "source": "",
+                "total_count": 0,
+                "enriched_count": 0,
+                "fund_type_distribution": [],
+                "risk_level_distribution": [],
+            }
+
+        with sqlite3.connect(DB_PATH) as connection:
+            connection.row_factory = sqlite3.Row
+            status_row = connection.execute(
+                """
+                SELECT
+                    COUNT(*) AS total_count,
+                    COALESCE(SUM(is_enriched), 0) AS enriched_count,
+                    MAX(data_source) AS source
+                FROM funds
+                """
+            ).fetchone()
+            fund_type_rows = connection.execute(
+                """
+                SELECT COALESCE(NULLIF(fund_type, ''), '未知') AS label, COUNT(*) AS count
+                FROM funds
+                GROUP BY COALESCE(NULLIF(fund_type, ''), '未知')
+                ORDER BY count DESC
+                LIMIT 8
+                """
+            ).fetchall()
+            risk_level_rows = connection.execute(
+                """
+                SELECT COALESCE(NULLIF(risk_level, ''), '未知') AS label, COUNT(*) AS count
+                FROM funds
+                GROUP BY COALESCE(NULLIF(risk_level, ''), '未知')
+                ORDER BY label
+                """
+            ).fetchall()
+
+        return {
+            "available": True,
+            "source": status_row["source"] or "",
+            "total_count": int(status_row["total_count"] or 0),
+            "enriched_count": int(status_row["enriched_count"] or 0),
+            "fund_type_distribution": [
+                {"label": row["label"], "count": int(row["count"] or 0)}
+                for row in fund_type_rows
+            ],
+            "risk_level_distribution": [
+                {"label": row["label"], "count": int(row["count"] or 0)}
+                for row in risk_level_rows
+            ],
+        }
+
     def _row_to_fund(self, row: dict[str, str]) -> Fund:
         return Fund(
             fund_code=row["fund_code"],

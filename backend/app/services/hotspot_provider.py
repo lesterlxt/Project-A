@@ -90,9 +90,10 @@ class NewsHotspotProvider:
                 "不要把基金公司运营新闻、监管整改、产品发行数量、策略会活动本身列为热点，除非它明确对应某个可投资行业主题。\n"
                 f"新闻标题 JSON：{json.dumps(payload, ensure_ascii=False)}\n"
                 "返回 JSON：{\"hotspots\": [...]}\n"
-                "每个 hotspot 字段：name, heat_score, summary, related_keywords。\n"
+                "每个 hotspot 字段：name, heat_score, summary, related_keywords, evidence_titles。\n"
                 "要求：name 是短热点名，heat_score 是 1-100 的整数，summary 一句话，"
-                "related_keywords 是 3-6 个短关键词。不要写任何投资建议或收益承诺。"
+                "related_keywords 是 3-6 个短关键词，evidence_titles 是 1-3 个来自新闻标题 JSON 的原始标题。"
+                "不要写任何投资建议或收益承诺。"
             ),
             temperature=0.2,
         )
@@ -103,16 +104,57 @@ class NewsHotspotProvider:
 
         items: list[HotspotItem] = []
         for raw in raw_items[:5]:
+            related_keywords = [str(item) for item in raw["related_keywords"]][:6]
+            evidence_headlines = self._match_evidence(
+                raw_titles=[str(item) for item in raw.get("evidence_titles", [])],
+                keywords=[str(raw["name"]), *related_keywords],
+                headlines=headlines,
+            )
             items.append(
                 HotspotItem(
                     name=str(raw["name"]),
                     heat_score=max(1, min(100, int(raw["heat_score"]))),
                     summary=str(raw["summary"]),
-                    related_keywords=[str(item) for item in raw["related_keywords"]][:6],
+                    related_keywords=related_keywords,
                     source="Google News RSS + DeepSeek",
+                    source_detail="Google News RSS 抓取财经/产业标题，DeepSeek 仅基于这些标题提炼热点和热度分。",
+                    evidence_headlines=evidence_headlines,
                 )
             )
         return items
+
+    def _match_evidence(
+        self,
+        *,
+        raw_titles: list[str],
+        keywords: list[str],
+        headlines: list[NewsHeadline],
+    ) -> list[dict[str, str]]:
+        by_title = {headline.title: headline for headline in headlines}
+        matched: list[NewsHeadline] = []
+
+        for title in raw_titles:
+            headline = by_title.get(title)
+            if headline and headline not in matched:
+                matched.append(headline)
+
+        if len(matched) < 3:
+            normalized_keywords = [keyword.lower() for keyword in keywords if keyword.strip()]
+            for headline in headlines:
+                title_text = headline.title.lower()
+                if headline not in matched and any(keyword in title_text for keyword in normalized_keywords):
+                    matched.append(headline)
+                if len(matched) >= 3:
+                    break
+
+        return [
+            {
+                "title": headline.title,
+                "source": headline.source,
+                "published_at": headline.published_at,
+            }
+            for headline in matched[:3]
+        ]
 
     def _rss_url(self, query: str) -> str:
         encoded = urllib.parse.quote(query)

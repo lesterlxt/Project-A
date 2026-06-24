@@ -54,7 +54,7 @@ class EastmoneyFundDataProvider:
         base_rows = [self._base_row(candidate) for candidate in selected]
         DB_PATH.parent.mkdir(parents=True, exist_ok=True)
         self._write_sqlite(base_rows)
-        self.stock_industry_mapper.ensure_seed_table()
+        self.stock_industry_mapper.ensure_table()
 
         # ---- Phase 2: parallel enrichment (thread pool) ----
         enrich_candidates = selected[:enrich_limit]

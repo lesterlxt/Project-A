@@ -1,12 +1,10 @@
 import { AlertTriangle, Play, Sparkles } from "lucide-react";
 import { FormEvent } from "react";
-import { TodayHotspot } from "../api/campaignApi";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select } from "./ui/select";
-import { cn } from "../lib/utils";
 
 type Props = {
   hotspot: string;
@@ -17,9 +15,6 @@ type Props = {
   channels: string[];
   riskPreferences: string[];
   fundTypes: string[];
-  todayHotspots: TodayHotspot[];
-  hotspotsLoading: boolean;
-  updatedTime: string;
   loading: boolean;
   error: string;
   onHotspotChange: (value: string) => void;
@@ -39,9 +34,6 @@ export function ControlPanel({
   channels,
   riskPreferences,
   fundTypes,
-  todayHotspots,
-  hotspotsLoading,
-  updatedTime,
   loading,
   error,
   onHotspotChange,
@@ -64,34 +56,9 @@ export function ControlPanel({
           <div className="space-y-2">
             <Label>市场热点</Label>
             <Input value={hotspot} onChange={(event) => onHotspotChange(event.target.value)} />
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <Label>今日热点 Top 5</Label>
-              <span className="text-xs text-muted-foreground">{hotspotsLoading ? "加载中" : `更新 ${updatedTime}`}</span>
-            </div>
-            <div className="space-y-2">
-              {todayHotspots.map((item) => (
-                <button
-                  type="button"
-                  key={item.name}
-                  onClick={() => onHotspotChange(item.name)}
-                  className={cn(
-                    "flex min-h-10 w-full items-center justify-between gap-3 rounded-md border px-3 text-left text-sm transition-colors",
-                    item.name === hotspot ? "border-primary bg-accent text-accent-foreground" : "border-border bg-background hover:bg-accent/60",
-                  )}
-                >
-                  <span className="font-medium">{item.name}</span>
-                  <span className="rounded-md bg-secondary px-2 py-0.5 text-xs">{item.heat_score}</span>
-                </button>
-              ))}
-              {!hotspotsLoading && todayHotspots.length === 0 && (
-                <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
-                  未获取到真实热点，请检查网络或 DeepSeek 配置。
-                </p>
-              )}
-            </div>
+            <p className="text-xs leading-5 text-muted-foreground">
+              可手动输入，也可在右侧热点新闻面板选择今日主题。
+            </p>
           </div>
 
           <div className="space-y-2">

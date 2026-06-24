@@ -88,6 +88,31 @@ local shadcn/ui-style components
 lucide-react icons
 ```
 
+Current React layout:
+
+```text
+Left sidebar:
+  ControlPanel with only analysis parameters and action button
+  FundPoolStatusCard
+  AgentPipelineStatus
+
+Right side before analysis:
+  PreAnalysisDashboard
+  Shows system status, hotspot news, heat-score chart, fund-pool distribution,
+  risk-level distribution, current config, multi-agent workflow preview,
+  scoring model intro, output preview, and compliance reminder.
+
+Right side after analysis:
+  ReviewActions
+  candidate funds / excluded funds
+  hotspot analysis
+  score breakdown
+  evidence panel
+  marketing copy
+  compliance panel
+  suitability boundary
+```
+
 Backend:
 
 ```text
@@ -120,6 +145,7 @@ curl http://127.0.0.1:8000/api/health
 curl http://127.0.0.1:8000/api/llm-status
 curl http://127.0.0.1:8000/api/options
 curl http://127.0.0.1:8000/api/funds/status
+curl http://127.0.0.1:8000/api/funds/summary
 ```
 
 ## Current Data State
@@ -146,6 +172,17 @@ backend/app/data/real_funds.csv  deleted; old CSV fallback
 ```
 
 `FundLoader` should only read `funds.db`. If the DB is missing, the backend should ask the user to run `/api/funds/sync`.
+
+`/api/funds/summary` is a read-only SQLite summary endpoint used by the pre-analysis dashboard. It should only report real local fund-pool statistics:
+
+```text
+total_count
+enriched_count
+fund_type_distribution
+risk_level_distribution
+```
+
+Do not hardcode frontend chart data for these panels.
 
 ## Data Sources
 
@@ -225,6 +262,7 @@ Current provenance categories:
 raw         public API field
 calculated  calculated from available data
 inferred    rule-derived or approximate
+mapped      mapped from real stock_industry_map rows
 generated   LLM-generated text
 missing     unavailable
 ```
@@ -247,6 +285,9 @@ calculated:
   max_drawdown
   current score
 
+mapped:
+  industry_allocation when stock codes are mapped through real stock_industry_map rows
+
 inferred:
   risk_level
   suitable_clients
@@ -258,7 +299,7 @@ generated:
   marketing copy
 ```
 
-Known issue: if the future `stock_industry_map` table is present and industry allocation is mapped from stock codes, the result should no longer be labeled simply as `inferred`. Add an explicit source such as `mapped_from_holdings`.
+The frontend score panel now states that the comprehensive score is calculated by backend rules. DeepSeek participates in hotspot extraction and marketing copy generation, but does not directly assign the fund score.
 
 ## Real Industry Mapping Boundary
 
@@ -280,7 +321,7 @@ stock_industry_map(
 )
 ```
 
-This table is not auto-filled with fake data. If absent, the system falls back to keyword rules and should keep the field marked as inferred.
+This table is not auto-filled with fake data. The provider only creates the table shape and removes or ignores legacy rows with `source='manual_seed'`. If absent or incomplete, the system falls back to keyword rules and should keep the field marked as inferred.
 
 Future improvement: add `fund_holdings` with holding weights:
 
@@ -389,16 +430,11 @@ Important for technical presentation:
 Critical missing pieces:
 
 ```text
-EligibilityAgent
-data_quality_score
-exclusion_reasons
-hard suitability blocking
-fund category buckets
-formula explanations
 real industry mapping data
 holding-weight-based industry exposure
 formal review workflow
 Feishu chatbot endpoint
+backend-driven formula metadata
 ```
 
 ## What Is Not Necessary Yet
@@ -431,7 +467,7 @@ P1:
 
 ```text
 5. Fund-type bucketed scoring: initial category and same-group rank implemented
-6. Real stock industry mapping table: table shape and source-labeled seed implemented; full data import still needed
+6. Real stock industry mapping table: table shape implemented; default seed disabled; full data import still needed
 7. Recommendation explanation must cite field sources: initial explanation_points implemented
 ```
 

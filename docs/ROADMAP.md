@@ -141,9 +141,11 @@ These are useful later, but they do not solve the current trust gap.
 Already done or in progress:
 
 - React + FastAPI MVP;
+- pre-analysis dashboard for the initial workbench state;
 - DeepSeek LLM client;
 - public fund data sync;
 - SQLite fund pool;
+- read-only fund-pool summary endpoint for dashboard charts;
 - field source badges;
 - score breakdown;
 - bank-channel copy generation;
@@ -189,7 +191,7 @@ Initial implementation:
 
 - category buckets: money market, bond, mixed, equity, index, QDII, FOF;
 - same-category rank fields;
-- stock-industry mapping table shape plus a small source-labeled seed set;
+- stock-industry mapping table shape without default seed data;
 - explanation points that reference fields and sources.
 
 Remaining refinements:

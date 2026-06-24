@@ -56,6 +56,7 @@ A 项目：AI 热点驱动的基金智能选品与营销生成平台
 - **规则配置化**：基金同步关键词、风险等级推导、评分权重、基金类型筛选、渠道风险偏好等集中放在 `recommendation_rules.json`。
 - **候选基金排序**：基于主题相关度、持仓/行业匹配、产品定位、表现稳定性和渠道匹配计算分数。
 - **字段来源标记**：前端区分真实接口字段、系统计算字段、规则推导字段、AI 生成字段和缺失字段。
+- **分析前 Dashboard**：未生成结果前，右侧展示系统状态、热点新闻、热度图、基金池分布、风险等级分布、多 Agent 流程和评分模型说明。
 - **渠道营销文案**：根据不同银行渠道画像生成客户经理话术、社媒文案和长文。
 - **基础合规检查**：禁用词扫描和必要风险语句核验。
 - **审核稿导出**：导出 Markdown 审核稿，供人工复核。
@@ -131,13 +132,14 @@ P0 仍可继续增强：
 
 - 展示更多被排除基金，后续可做分页。
 - 把评分公式从后端配置完整返回给前端。
-- 把不同基金类型分桶后再排序。
 
 P1 后续完善：
 
 5. 已新增基金类型分桶和同类排名。
-6. 已新增 `stock_industry_map` 表结构和小批持仓行业映射种子；完整真实行业数据仍需后续接入。
+6. 已新增 `stock_industry_map` 表结构；默认不再写入行业 seed，旧 `manual_seed` 会被清理/忽略，完整真实行业数据仍需后续接入。
 7. 已新增结构化解释证据点，前端展示字段来源和依据字段。
+8. 评分卡已展示综合分、基金网站来源、热点来源、风险指标和适当性规则边界。
+9. 初始空白页已重构为 Pre-analysis Dashboard，热点 Top 5 从左侧移到右侧新闻/图表区。
 
 P2 技术升级：
 
@@ -158,6 +160,7 @@ P2 技术升级：
 - `funds.db` 是本地 SQLite 缓存，已被 `.gitignore` 忽略。
 - 旧的 CSV mock/fallback 数据已删除。
 - 当前行业配置仍可能来自规则推导；真实行业映射入口已预留，但需要后续灌入 `stock_industry_map`。
+- `stock_industry_map` 默认只建表、不自动 seed；`source='manual_seed'` 的旧记录不会参与行业聚合。
 - 当前持仓只有股票代码，不等于真实持仓权重；正式行业暴露应基于持仓权重聚合。
 
 ## 快速开始
@@ -216,6 +219,7 @@ curl -X POST http://127.0.0.1:8000/api/funds/sync \
 | GET | `/api/options` | 前端选项和默认参数 |
 | GET | `/api/hotspots/today` | 今日热点 Top 5 |
 | GET | `/api/funds/status` | 基金池状态 |
+| GET | `/api/funds/summary` | 基金池类型和风险等级分布 |
 | POST | `/api/funds/sync` | 同步基金池 |
 | POST | `/api/analyze-hotspot` | 单个热点深度分析 |
 | POST | `/api/run-campaign` | 完整选品和营销流水线 |
@@ -252,6 +256,7 @@ frontend/src/
 ├── api/campaignApi.ts
 ├── components/
 │   ├── ControlPanel.tsx
+│   ├── PreAnalysisDashboard.tsx
 │   ├── FundPoolStatusCard.tsx
 │   ├── AgentPipelineStatus.tsx
 │   ├── FundRankingTable.tsx
