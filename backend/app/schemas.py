@@ -1,0 +1,114 @@
+from pydantic import BaseModel, Field
+
+
+class HotspotAnalysisRequest(BaseModel):
+    hotspot: str = Field(..., examples=["AI算力"])
+
+
+class HotspotAnalysisResponse(BaseModel):
+    hotspot: str
+    summary: str
+    themes: list[str]
+    industries: list[str]
+    keywords: list[str]
+    opportunities: list[str]
+    risks: list[str]
+
+
+class HotspotItem(BaseModel):
+    name: str
+    heat_score: int
+    summary: str
+    related_keywords: list[str]
+    source: str
+
+
+class TodayHotspotsResponse(BaseModel):
+    updated_at: str
+    source: str
+    items: list[HotspotItem]
+
+
+class FundSyncRequest(BaseModel):
+    limit: int = Field(default=3000, ge=1, le=5000)
+    enrich_limit: int = Field(default=80, ge=0, le=500)
+    keywords: list[str] = Field(default_factory=list)
+
+
+class FundSyncResponse(BaseModel):
+    source: str
+    saved_path: str
+    total_candidates: int
+    synced_count: int
+    enriched_count: int
+    keywords: list[str]
+    updated_at: str
+    message: str
+
+
+class CampaignRequest(BaseModel):
+    hotspot: str = Field(..., examples=["AI算力"])
+    channel: str = Field(default="招商银行", examples=["招商银行"])
+    risk_preference: str = Field(default="平衡型", examples=["平衡型"])
+    fund_type_filter: str = Field(default="全部", examples=["权益"])
+    top_k: int = Field(default=5, ge=1, le=10)
+
+
+class ScoreBreakdown(BaseModel):
+    theme_relevance: float
+    holding_match: float
+    positioning_match: float
+    performance_stability: float
+    channel_match: float
+    compliance_penalty: float
+
+
+class RecommendedFund(BaseModel):
+    fund_code: str
+    fund_name: str
+    fund_type: str
+    manager: str
+    score: float
+    score_breakdown: ScoreBreakdown
+    matched_tags: list[str]
+    reason: str
+    suitable_clients: str
+    unsuitable_clients: str
+    risk_warning: str
+
+
+class ChannelStrategy(BaseModel):
+    channel: str
+    client_profile: list[str]
+    messaging_focus: list[str]
+    forbidden_angles: list[str]
+    strategy_summary: str
+
+
+class MarketingCopy(BaseModel):
+    headline: str
+    one_liner: str
+    relationship_manager_script: str
+    social_post: str
+    long_form: str
+    risk_disclosure: str
+
+
+class ComplianceIssue(BaseModel):
+    term: str
+    severity: str
+    message: str
+
+
+class ComplianceResult(BaseModel):
+    passed: bool
+    issues: list[ComplianceIssue]
+    suggestions: list[str]
+
+
+class CampaignResponse(BaseModel):
+    hotspot_analysis: HotspotAnalysisResponse
+    channel_strategy: ChannelStrategy
+    recommended_funds: list[RecommendedFund]
+    marketing_copy: MarketingCopy
+    compliance: ComplianceResult
