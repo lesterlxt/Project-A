@@ -15,7 +15,7 @@ AI 热点驱动的基金智能选品与营销生成平台 MVP。
 
 ## 架构
 
-```
+```text
 frontend (React + TypeScript + Vite)     backend (FastAPI + DeepSeek)
 ┌──────────────────────────────┐       ┌──────────────────────────┐
 │  CampaignWorkbench           │  POST │  /api/run-campaign       │
@@ -79,8 +79,8 @@ cd frontend
 npm run dev
 ```
 
-- 工作台: http://127.0.0.1:5173
-- Swagger: http://127.0.0.1:8000/docs
+- 工作台: <http://127.0.0.1:5173>
+- Swagger: <http://127.0.0.1:8000/docs>
 
 ### 5. 使用
 
@@ -91,7 +91,7 @@ npm run dev
 ## API
 
 | Method | Path | 说明 |
-|--------|------|------|
+| ------ | ---- | ---- |
 | GET | `/api/health` | 健康检查 |
 | GET | `/api/llm-status` | DeepSeek 配置状态 |
 | GET | `/api/hotspots/today` | 今日热点 Top 5 |
@@ -113,7 +113,7 @@ npm run dev
 
 ## 项目结构
 
-```
+```text
 backend/app/
 ├── main.py              # FastAPI 入口
 ├── schemas.py           # Pydantic 数据模型
