@@ -1,19 +1,6 @@
 from app.schemas import ChannelStrategy, HotspotAnalysisResponse, RecommendedFund, ScoreBreakdown
 from app.services.fund_loader import Fund
-
-
-RISK_SCORE_BY_CHANNEL = {
-    "招商银行": {"R1": 3, "R2": 6, "R3": 8, "R4": 9, "R5": 7},
-    "工商银行": {"R1": 8, "R2": 9, "R3": 8, "R4": 6, "R5": 3},
-    "建设银行": {"R1": 7, "R2": 9, "R3": 8, "R4": 6, "R5": 4},
-    "农业银行": {"R1": 8, "R2": 9, "R3": 7, "R4": 5, "R5": 3},
-}
-
-RISK_SCORE_BY_PREFERENCE = {
-    "稳健型": {"R1": 10, "R2": 10, "R3": 8, "R4": 4, "R5": 2},
-    "平衡型": {"R1": 6, "R2": 8, "R3": 10, "R4": 8, "R5": 5},
-    "进取型": {"R1": 3, "R2": 5, "R3": 8, "R4": 10, "R5": 10},
-}
+from app.services.rule_config import load_rule_config
 
 
 class FundScorer:
@@ -48,23 +35,35 @@ class FundScorer:
         )
         matched_tags = [tag for tag in tags if tag and tag in fund_text]
         unique_match_ratio = len(set(matched_tags)) / max(len(set(tags)), 1)
+        scoring = load_rule_config().scoring
 
-        theme_relevance = min(35, round(unique_match_ratio * 45, 1))
+        theme_relevance = min(
+            scoring["theme_relevance_max"],
+            round(unique_match_ratio * scoring["theme_relevance_multiplier"], 1),
+        )
         holding_match = min(
-            25,
+            scoring["holding_match_max"],
             round(
                 sum(percent for industry, percent in fund.industry_allocation.items() if industry in hotspot_analysis.industries)
-                * 0.6,
+                * scoring["holding_match_multiplier"],
                 1,
             ),
         )
         positioning_match = min(
-            15,
-            round(sum(1 for tag in hotspot_analysis.themes if tag in " ".join(fund.positioning)) * 5, 1),
+            scoring["positioning_match_max"],
+            round(
+                sum(1 for tag in hotspot_analysis.themes if tag in " ".join(fund.positioning))
+                * scoring["positioning_match_per_hit"],
+                1,
+            ),
         )
         performance_stability = self._performance_score(fund)
         channel_match = self._channel_score(fund, channel_strategy.channel, risk_preference)
-        compliance_penalty = -2 if fund.risk_level in {"R4", "R5"} and risk_preference == "稳健型" else 0
+        compliance_penalty = (
+            scoring["compliance_penalty_high_risk_for_conservative"]
+            if fund.risk_level in {"R4", "R5"} and risk_preference == "稳健型"
+            else 0
+        )
 
         total_score = round(
             theme_relevance
@@ -93,6 +92,18 @@ class FundScorer:
             fund_name=fund.fund_name,
             fund_type=fund.fund_type,
             manager=fund.manager,
+            latest_nav=fund.latest_nav,
+            estimated_growth=fund.estimated_growth,
+            one_year_return=fund.one_year_return,
+            volatility=fund.volatility,
+            max_drawdown=fund.max_drawdown,
+            risk_level=fund.risk_level,
+            positioning=fund.positioning,
+            top_holdings=fund.top_holdings,
+            industry_allocation=fund.industry_allocation,
+            data_source=fund.data_source,
+            data_updated_at=fund.data_updated_at,
+            is_enriched=fund.is_enriched,
             score=total_score,
             score_breakdown=score_breakdown,
             matched_tags=sorted(set(matched_tags)),
@@ -100,28 +111,56 @@ class FundScorer:
             suitable_clients=fund.suitable_clients,
             unsuitable_clients=self._unsuitable_clients(fund),
             risk_warning=risk_warning,
+            field_sources={
+                "fund_code": "raw",
+                "fund_name": "raw",
+                "fund_type": "raw",
+                "manager": "raw" if fund.manager != "未知" else "missing",
+                "latest_nav": "raw" if fund.latest_nav else "missing",
+                "estimated_growth": "raw" if fund.estimated_growth else "missing",
+                "one_year_return": "raw" if fund.one_year_return is not None else "missing",
+                "top_holdings": "raw" if fund.top_holdings else "missing",
+                "volatility": "calculated" if fund.volatility is not None else "missing",
+                "max_drawdown": "calculated" if fund.max_drawdown is not None else "missing",
+                "risk_level": "inferred",
+                "suitable_clients": "inferred",
+                "positioning": "inferred",
+                "industry_allocation": "inferred" if fund.industry_allocation else "missing",
+                "score": "calculated",
+                "reason": "generated",
+            },
         )
 
     def _performance_score(self, fund: Fund) -> float:
         if fund.volatility is None or fund.max_drawdown is None or fund.one_year_return is None:
             return 0.0
-        score = 10
-        if fund.volatility > 30:
-            score -= 3
-        elif fund.volatility > 22:
-            score -= 1
-        if abs(fund.max_drawdown) > 28:
-            score -= 3
-        elif abs(fund.max_drawdown) > 20:
-            score -= 1
+        rules = load_rule_config().performance_score
+        score = rules["base_score"]
+        if fund.volatility > rules["high_volatility_threshold"]:
+            score -= rules["high_volatility_penalty"]
+        elif fund.volatility > rules["medium_volatility_threshold"]:
+            score -= rules["medium_volatility_penalty"]
+        if abs(fund.max_drawdown) > rules["high_drawdown_threshold"]:
+            score -= rules["high_drawdown_penalty"]
+        elif abs(fund.max_drawdown) > rules["medium_drawdown_threshold"]:
+            score -= rules["medium_drawdown_penalty"]
         if fund.one_year_return < 0:
-            score -= 2
+            score -= rules["negative_return_penalty"]
         return float(max(score, 0))
 
     def _channel_score(self, fund: Fund, channel: str, risk_preference: str) -> float:
-        scores = RISK_SCORE_BY_CHANNEL.get(channel, RISK_SCORE_BY_CHANNEL["工商银行"])
-        preference_scores = RISK_SCORE_BY_PREFERENCE.get(risk_preference, RISK_SCORE_BY_PREFERENCE["平衡型"])
-        return round((scores.get(fund.risk_level, 6) * 0.45) + (preference_scores.get(fund.risk_level, 6) * 0.55), 1)
+        config = load_rule_config()
+        scores = config.channel_risk_scores.get(channel, config.channel_risk_scores["工商银行"])
+        preference_scores = config.preference_risk_scores.get(
+            risk_preference,
+            config.preference_risk_scores["平衡型"],
+        )
+        scoring = config.scoring
+        return round(
+            (scores.get(fund.risk_level, 6) * scoring["channel_score_weight"])
+            + (preference_scores.get(fund.risk_level, 6) * scoring["preference_score_weight"]),
+            1,
+        )
 
     def _build_reason(self, fund: Fund, hotspot_analysis: HotspotAnalysisResponse, matched_tags: list[str]) -> str:
         industry_hits = [

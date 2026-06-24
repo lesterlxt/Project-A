@@ -41,6 +41,34 @@ export type FundSyncResponse = {
   message: string;
 };
 
+export type FundPoolStatus = {
+  available: boolean;
+  storage: string;
+  source: string;
+  total_count: number;
+  enriched_count: number;
+  latest_updated_at: string | null;
+  db_path: string;
+};
+
+export type AppOptions = {
+  channels: string[];
+  risk_preferences: string[];
+  fund_type_filters: string[];
+  defaults: {
+    hotspot: string;
+    channel: string;
+    risk_preference: string;
+    fund_type_filter: string;
+    top_k: number;
+  };
+  fund_sync_defaults: {
+    limit: number;
+    enrich_limit: number;
+    keywords: string[];
+  };
+};
+
 export type ScoreBreakdown = {
   theme_relevance: number;
   holding_match: number;
@@ -55,6 +83,18 @@ export type RecommendedFund = {
   fund_name: string;
   fund_type: string;
   manager: string;
+  latest_nav: string;
+  estimated_growth: string;
+  one_year_return: number | null;
+  volatility: number | null;
+  max_drawdown: number | null;
+  risk_level: string;
+  positioning: string[];
+  top_holdings: string[];
+  industry_allocation: Record<string, number>;
+  data_source: string;
+  data_updated_at: string;
+  is_enriched: boolean;
   score: number;
   score_breakdown: ScoreBreakdown;
   matched_tags: string[];
@@ -62,6 +102,7 @@ export type RecommendedFund = {
   suitable_clients: string;
   unsuitable_clients: string;
   risk_warning: string;
+  field_sources: Record<string, "raw" | "calculated" | "inferred" | "generated" | "missing" | string>;
 };
 
 export type ChannelStrategy = {
@@ -101,7 +142,7 @@ export type CampaignResponse = {
   compliance: ComplianceResult;
 };
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
 
 export async function runCampaign(request: CampaignRequest): Promise<CampaignResponse> {
   const response = await fetch(`${API_BASE}/api/run-campaign`, {
@@ -131,6 +172,28 @@ export async function fetchTodayHotspots(): Promise<TodayHotspotsResponse> {
   return response.json();
 }
 
+export async function fetchFundPoolStatus(): Promise<FundPoolStatus> {
+  const response = await fetch(`${API_BASE}/api/funds/status`);
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "基金池状态获取失败");
+  }
+
+  return response.json();
+}
+
+export async function fetchAppOptions(): Promise<AppOptions> {
+  const response = await fetch(`${API_BASE}/api/options`);
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "系统选项获取失败");
+  }
+
+  return response.json();
+}
+
 export async function syncRealFunds(options?: {
   limit?: number;
   enrichLimit?: number;
@@ -139,12 +202,7 @@ export async function syncRealFunds(options?: {
   const {
     limit = 3000,
     enrichLimit = 100,
-    keywords = [
-      "AI", "科技", "半导体", "算力", "机器人", "创新药", "医药", "红利",
-      "低波", "储能", "电力", "新能源", "军工", "消费", "银行", "券商",
-      "农业", "汽车", "有色", "煤炭", "化工", "通信", "计算机", "电子",
-      "港股", "美股", "沪深300", "中证500", "创业板", "科创板",
-    ],
+    keywords = [],
   } = options ?? {};
 
   const response = await fetch(`${API_BASE}/api/funds/sync`, {

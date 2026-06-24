@@ -1,11 +1,8 @@
-import csv
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
 
-DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "funds.csv"
-REAL_DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "real_funds.csv"
 DB_PATH = Path(__file__).resolve().parents[1] / "data" / "funds.db"
 
 
@@ -23,6 +20,11 @@ class Fund:
     max_drawdown: float | None
     risk_level: str
     suitable_clients: str
+    latest_nav: str
+    estimated_growth: str
+    data_source: str
+    data_updated_at: str
+    is_enriched: bool
 
 
 def _split_semicolon(value: str) -> list[str]:
@@ -49,16 +51,13 @@ def _parse_industry_allocation(value: str) -> dict[str, float]:
 
 
 class FundLoader:
-    def __init__(self, data_path: Path = DATA_PATH) -> None:
-        self.data_path = REAL_DATA_PATH if REAL_DATA_PATH.exists() else data_path
-
     def load(self) -> list[Fund]:
-        if DB_PATH.exists():
-            return self._load_sqlite()
+        if not DB_PATH.exists():
+            raise FileNotFoundError(
+                "No SQLite fund pool found. Run POST /api/funds/sync to create funds.db first."
+            )
 
-        with self.data_path.open("r", encoding="utf-8-sig", newline="") as file:
-            reader = csv.DictReader(file)
-            return [self._row_to_fund(row) for row in reader]
+        return self._load_sqlite()
 
     def _load_sqlite(self) -> list[Fund]:
         with sqlite3.connect(DB_PATH) as connection:
@@ -77,11 +76,51 @@ class FundLoader:
                     volatility,
                     max_drawdown,
                     risk_level,
-                    suitable_clients
+                    suitable_clients,
+                    latest_nav,
+                    estimated_growth,
+                    data_source,
+                    data_updated_at,
+                    is_enriched
                 FROM funds
                 """
             ).fetchall()
         return [self._row_to_fund(dict(row)) for row in rows]
+
+    def status(self) -> dict[str, str | int | bool | None]:
+        if not DB_PATH.exists():
+            return {
+                "available": False,
+                "storage": "SQLite",
+                "source": "",
+                "total_count": 0,
+                "enriched_count": 0,
+                "latest_updated_at": None,
+                "db_path": str(DB_PATH),
+            }
+
+        with sqlite3.connect(DB_PATH) as connection:
+            connection.row_factory = sqlite3.Row
+            row = connection.execute(
+                """
+                SELECT
+                    COUNT(*) AS total_count,
+                    COALESCE(SUM(is_enriched), 0) AS enriched_count,
+                    MAX(data_updated_at) AS latest_updated_at,
+                    MAX(data_source) AS source
+                FROM funds
+                """
+            ).fetchone()
+
+        return {
+            "available": True,
+            "storage": "SQLite",
+            "source": row["source"] or "",
+            "total_count": int(row["total_count"] or 0),
+            "enriched_count": int(row["enriched_count"] or 0),
+            "latest_updated_at": row["latest_updated_at"],
+            "db_path": str(DB_PATH),
+        }
 
     def _row_to_fund(self, row: dict[str, str]) -> Fund:
         return Fund(
@@ -97,4 +136,9 @@ class FundLoader:
             max_drawdown=_parse_percent(row["max_drawdown"]),
             risk_level=row["risk_level"],
             suitable_clients=row["suitable_clients"],
+            latest_nav=str(row.get("latest_nav") or ""),
+            estimated_growth=str(row.get("estimated_growth") or ""),
+            data_source=str(row.get("data_source") or ""),
+            data_updated_at=str(row.get("data_updated_at") or ""),
+            is_enriched=bool(int(row.get("is_enriched") or 0)),
         )

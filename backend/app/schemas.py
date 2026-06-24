@@ -46,6 +46,38 @@ class FundSyncResponse(BaseModel):
     message: str
 
 
+class FundPoolStatusResponse(BaseModel):
+    available: bool
+    storage: str
+    source: str
+    total_count: int
+    enriched_count: int
+    latest_updated_at: str | None
+    db_path: str
+
+
+class FundSyncDefaults(BaseModel):
+    limit: int
+    enrich_limit: int
+    keywords: list[str]
+
+
+class CampaignDefaults(BaseModel):
+    hotspot: str
+    channel: str
+    risk_preference: str
+    fund_type_filter: str
+    top_k: int
+
+
+class AppOptionsResponse(BaseModel):
+    channels: list[str]
+    risk_preferences: list[str]
+    fund_type_filters: list[str]
+    defaults: CampaignDefaults
+    fund_sync_defaults: FundSyncDefaults
+
+
 class CampaignRequest(BaseModel):
     hotspot: str = Field(..., examples=["AI算力"])
     channel: str = Field(default="招商银行", examples=["招商银行"])
@@ -68,6 +100,18 @@ class RecommendedFund(BaseModel):
     fund_name: str
     fund_type: str
     manager: str
+    latest_nav: str
+    estimated_growth: str
+    one_year_return: float | None
+    volatility: float | None
+    max_drawdown: float | None
+    risk_level: str
+    positioning: list[str]
+    top_holdings: list[str]
+    industry_allocation: dict[str, float]
+    data_source: str
+    data_updated_at: str
+    is_enriched: bool
     score: float
     score_breakdown: ScoreBreakdown
     matched_tags: list[str]
@@ -75,6 +119,7 @@ class RecommendedFund(BaseModel):
     suitable_clients: str
     unsuitable_clients: str
     risk_warning: str
+    field_sources: dict[str, str]
 
 
 class ChannelStrategy(BaseModel):

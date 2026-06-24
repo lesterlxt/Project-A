@@ -5,6 +5,7 @@ from app.schemas import CampaignRequest, CampaignResponse, HotspotAnalysisRespon
 from app.services.compliance import ComplianceChecker
 from app.services.fund_loader import FundLoader
 from app.services.fund_scorer import FundScorer
+from app.services.rule_config import load_rule_config
 
 
 class CampaignOrchestrator:
@@ -51,12 +52,15 @@ class CampaignOrchestrator:
     def _filter_funds(self, funds, fund_type_filter: str):
         if fund_type_filter == "全部":
             return funds
-        if fund_type_filter == "权益":
-            return [fund for fund in funds if fund.fund_type in {"股票型", "偏股混合", "混合型"}]
-        if fund_type_filter == "固收+":
-            return [fund for fund in funds if fund.fund_type in {"债券型", "混合型"} or "固收+" in fund.positioning]
-        if fund_type_filter == "红利低波":
-            return [fund for fund in funds if {"红利", "低波", "高股息"} & set(fund.positioning)]
-        if fund_type_filter in {"指数", "ETF联接"}:
-            return [fund for fund in funds if fund_type_filter in fund.fund_type]
-        return funds
+        rule = load_rule_config().fund_type_filter_rules.get(fund_type_filter)
+        if rule is None:
+            return funds
+
+        fund_type_contains = rule.get("fund_type_contains", [])
+        positioning_any = set(rule.get("positioning_any", []))
+        return [
+            fund
+            for fund in funds
+            if any(token in fund.fund_type for token in fund_type_contains)
+            or bool(positioning_any & set(fund.positioning))
+        ]

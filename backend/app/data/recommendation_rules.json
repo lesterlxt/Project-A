@@ -1,0 +1,166 @@
+{
+  "ui": {
+    "default_hotspot": "AI算力",
+    "default_channel": "招商银行",
+    "default_risk_preference": "平衡型",
+    "default_fund_type_filter": "全部",
+    "default_top_k": 5,
+    "risk_preferences": ["稳健型", "平衡型", "进取型"],
+    "fund_type_filters": ["全部", "权益", "指数", "ETF联接", "固收+", "红利低波"]
+  },
+  "fund_sync": {
+    "default_limit": 3000,
+    "default_enrich_limit": 100,
+    "default_keywords": [
+      "AI",
+      "科技",
+      "半导体",
+      "算力",
+      "机器人",
+      "创新药",
+      "医药",
+      "红利",
+      "低波",
+      "储能",
+      "电力",
+      "新能源",
+      "军工",
+      "消费",
+      "银行",
+      "券商",
+      "农业",
+      "汽车",
+      "有色",
+      "煤炭",
+      "化工",
+      "通信",
+      "计算机",
+      "电子",
+      "港股",
+      "美股",
+      "沪深300",
+      "中证500",
+      "创业板",
+      "科创板"
+    ]
+  },
+  "risk_level_rules": [
+    {"contains": "货币型", "risk_level": "R1"},
+    {"contains": "纯债", "risk_level": "R2"},
+    {"contains": "同业存单", "risk_level": "R1"},
+    {"contains": "债券型", "risk_level": "R2"},
+    {"contains": "偏债", "risk_level": "R2"},
+    {"contains": "混合型-偏债", "risk_level": "R2"},
+    {"contains": "混合型-灵活", "risk_level": "R3"},
+    {"contains": "混合型-平衡", "risk_level": "R3"},
+    {"contains": "混合型-偏股", "risk_level": "R4"},
+    {"contains": "混合型", "risk_level": "R3"},
+    {"contains": "指数型-海外股票", "risk_level": "R4"},
+    {"contains": "指数型-海外", "risk_level": "R4"},
+    {"contains": "指数型", "risk_level": "R3"},
+    {"contains": "QDII-普通股票", "risk_level": "R4"},
+    {"contains": "QDII-指数", "risk_level": "R4"},
+    {"contains": "QDII-混合", "risk_level": "R3"},
+    {"contains": "QDII-债券", "risk_level": "R2"},
+    {"contains": "QDII", "risk_level": "R4"},
+    {"contains": "偏股", "risk_level": "R4"},
+    {"contains": "股票型", "risk_level": "R4"},
+    {"contains": "商品", "risk_level": "R4"},
+    {"contains": "联接", "risk_level": "R3"},
+    {"contains": "LOF", "risk_level": "R3"},
+    {"contains": "ETF", "risk_level": "R3"}
+  ],
+  "suitable_clients_by_risk": {
+    "R1": "保守型及以上客户，适合短期闲置资金管理",
+    "R2": "稳健型及以上客户，适合中短期配置",
+    "R3": "平衡型及以上客户，适合中长期资产配置",
+    "R4": "进取型客户，能承受较大净值波动，适合长期投资",
+    "R5": "激进型客户，能承受显著净值波动，适合长期且风险承受能力强的投资者"
+  },
+  "fund_type_filter_rules": {
+    "权益": {
+      "fund_type_contains": ["股票型", "偏股"],
+      "positioning_any": []
+    },
+    "固收+": {
+      "fund_type_contains": ["债券型", "混合型-偏债", "偏债"],
+      "positioning_any": ["固收+"]
+    },
+    "红利低波": {
+      "fund_type_contains": [],
+      "positioning_any": ["红利", "低波", "高股息"]
+    },
+    "指数": {
+      "fund_type_contains": ["指数"],
+      "positioning_any": []
+    },
+    "ETF联接": {
+      "fund_type_contains": ["ETF", "联接"],
+      "positioning_any": []
+    }
+  },
+  "channel_risk_scores": {
+    "招商银行": {"R1": 3, "R2": 6, "R3": 8, "R4": 9, "R5": 7},
+    "工商银行": {"R1": 8, "R2": 9, "R3": 8, "R4": 6, "R5": 3},
+    "建设银行": {"R1": 7, "R2": 9, "R3": 8, "R4": 6, "R5": 4},
+    "农业银行": {"R1": 8, "R2": 9, "R3": 7, "R4": 5, "R5": 3}
+  },
+  "preference_risk_scores": {
+    "稳健型": {"R1": 10, "R2": 10, "R3": 8, "R4": 4, "R5": 2},
+    "平衡型": {"R1": 6, "R2": 8, "R3": 10, "R4": 8, "R5": 5},
+    "进取型": {"R1": 3, "R2": 5, "R3": 8, "R4": 10, "R5": 10}
+  },
+  "scoring": {
+    "theme_relevance_max": 35,
+    "theme_relevance_multiplier": 45,
+    "holding_match_max": 25,
+    "holding_match_multiplier": 0.6,
+    "positioning_match_max": 15,
+    "positioning_match_per_hit": 5,
+    "compliance_penalty_high_risk_for_conservative": -2,
+    "channel_score_weight": 0.45,
+    "preference_score_weight": 0.55
+  },
+  "performance_score": {
+    "base_score": 10,
+    "high_volatility_threshold": 30,
+    "high_volatility_penalty": 3,
+    "medium_volatility_threshold": 22,
+    "medium_volatility_penalty": 1,
+    "high_drawdown_threshold": 28,
+    "high_drawdown_penalty": 3,
+    "medium_drawdown_threshold": 20,
+    "medium_drawdown_penalty": 1,
+    "negative_return_penalty": 2
+  },
+  "industry_keyword_rules": [
+    {"keyword": "半导体", "industry": "电子", "weight": 25.0},
+    {"keyword": "芯片", "industry": "电子", "weight": 25.0},
+    {"keyword": "AI", "industry": "计算机", "weight": 20.0},
+    {"keyword": "人工智能", "industry": "计算机", "weight": 20.0},
+    {"keyword": "算力", "industry": "通信设备", "weight": 18.0},
+    {"keyword": "光模块", "industry": "通信设备", "weight": 18.0},
+    {"keyword": "机器人", "industry": "机械设备", "weight": 22.0},
+    {"keyword": "创新药", "industry": "医药生物", "weight": 28.0},
+    {"keyword": "医药", "industry": "医药生物", "weight": 25.0},
+    {"keyword": "医疗", "industry": "医药生物", "weight": 25.0},
+    {"keyword": "生物科技", "industry": "医药生物", "weight": 25.0},
+    {"keyword": "红利", "industry": "银行", "weight": 18.0},
+    {"keyword": "高股息", "industry": "银行", "weight": 18.0},
+    {"keyword": "新能源", "industry": "电力设备", "weight": 22.0},
+    {"keyword": "光伏", "industry": "电力设备", "weight": 25.0},
+    {"keyword": "储能", "industry": "电力设备", "weight": 20.0},
+    {"keyword": "军工", "industry": "国防军工", "weight": 25.0},
+    {"keyword": "消费", "industry": "食品饮料", "weight": 20.0},
+    {"keyword": "白酒", "industry": "食品饮料", "weight": 30.0},
+    {"keyword": "汽车", "industry": "汽车", "weight": 25.0},
+    {"keyword": "银行", "industry": "银行", "weight": 25.0},
+    {"keyword": "券商", "industry": "非银金融", "weight": 25.0},
+    {"keyword": "农业", "industry": "农林牧渔", "weight": 22.0},
+    {"keyword": "低空经济", "industry": "国防军工", "weight": 18.0},
+    {"keyword": "有色", "industry": "有色金属", "weight": 25.0},
+    {"keyword": "煤炭", "industry": "煤炭", "weight": 25.0},
+    {"keyword": "电力", "industry": "公用事业", "weight": 22.0},
+    {"keyword": "科技", "industry": "计算机", "weight": 18.0}
+  ]
+}

@@ -1,0 +1,21 @@
+import { Badge } from "./ui/badge";
+
+const sourceLabels: Record<string, string> = {
+  raw: "真实接口",
+  calculated: "系统计算",
+  inferred: "规则推导",
+  generated: "AI生成",
+  missing: "暂无数据",
+};
+
+const variants: Record<string, "success" | "info" | "warning" | "muted"> = {
+  raw: "success",
+  calculated: "info",
+  inferred: "warning",
+  generated: "info",
+  missing: "muted",
+};
+
+export function SourceBadge({ source }: { source: string }) {
+  return <Badge variant={variants[source] ?? "muted"}>{sourceLabels[source] ?? source}</Badge>;
+}
