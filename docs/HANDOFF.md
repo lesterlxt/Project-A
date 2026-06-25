@@ -26,7 +26,10 @@ Implemented in this branch:
 - FundEvidencePanel rewritten from 181-line nested Card+border-boxes to clean section with compact key-value rows;
 - changed results layout from 2-column asymmetrical grid to single-column vertical flow with space-y-8;
 - simplified FundRankingTable right-side info density (4 rows → 2 rows);
-- HotspotAnalysisCard extracted from CampaignWorkbench inline to standalone section.
+- HotspotAnalysisCard extracted from CampaignWorkbench inline to standalone section;
+- added react-router-dom with URL-based state tracking: `/?tab=result&fund=CODE` for results view, plain `/` for pre-analysis;
+- removed stats bar and hidden ExcludedFundsPanel / CompliancePanel from frontend (components and backend APIs preserved for later use);
+- moved ReviewActions (审核状态) to the bottom of the results page.
 
 ## Data Sources
 

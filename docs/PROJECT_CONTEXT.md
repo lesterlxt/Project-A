@@ -106,17 +106,21 @@ Right side before analysis:
   E Fund official supermarket sample, fund-pool structure, and analysis boundary.
 
 Right side after analysis — single-column vertical flow with `space-y-8`:
-  Stats bar (compact border row)
-  FundRankingTable (Card preserved for interactive selection)
+  FundRankingTable (Card preserved for interactive fund selection)
   FundEvidencePanel (merged ScoreBreakdown + evidence, clean section)
-  HotspotAnalysisSection (section heading, no Card)
-  grid xl:grid-cols-2: MarketingCopyPanel | CompliancePanel (sections)
+  HotspotAnalysisSection (section heading)
+  MarketingCopyPanel (section heading)
   Suitability boundary (section heading)
-  ExcludedFundsPanel (section heading)
+  ReviewActions (审核状态 bar, at page bottom)
 
-All post-analysis sections use SectionHeading pattern instead of Card
-wrappers, matching the pre-analysis page style. ScoreBreakdown has been
-merged into FundEvidencePanel as a score-bars subsection.
+URL routing via react-router-dom:
+  /                          → pre-analysis view
+  /?tab=result&fund=CODE     → results view with fund CODE selected
+
+Removed from frontend (components + backend APIs preserved for later):
+  - Stats bar (热点/候选基金/已筛基金/渠道/合规)
+  - ExcludedFundsPanel (未进入候选池)
+  - CompliancePanel (合规检查)
 ```
 
 `/api/options` also returns scoring formula metadata. The pre-analysis dashboard and `ScoreBreakdown` render this backend-driven model instead of duplicating formula text in frontend components.

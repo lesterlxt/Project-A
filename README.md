@@ -151,6 +151,8 @@ P1 后续完善：
 14. 已将分析后结果页全量重构：去除了 9 个 Card 包裹的 Dashboard Widget 风格，改为与分析前一致的 Section Heading 纵向流。
 15. FundEvidencePanel 从 181 行嵌套 border-box 重构为紧凑的 key-value 行；ScoreBreakdown 合并入 FundEvidencePanel。
 16. 结果页布局从 2 列不对称 grid 改为单列纵向流（space-y-8），信息层级清晰，视觉噪音大幅降低。
+17. 已引入 react-router-dom，URL 反映当前视图：`/` 为分析前，`/?tab=result&fund=CODE` 为分析后并选中某只基金。
+18. 前端已隐藏统计条、未进入候选池、合规检查模块（组件和后端接口保留，后续可启用）。审核状态条移到页面底部。
 
 P2 技术升级：
 

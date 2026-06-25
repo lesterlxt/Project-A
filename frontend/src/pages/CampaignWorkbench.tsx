@@ -1,5 +1,6 @@
 import { LineChart, ShieldCheck } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   AppOptions,
   CampaignResponse,
@@ -19,9 +20,7 @@ import {
   syncRealFunds,
 } from "../api/campaignApi";
 import { AgentPipelineStatus } from "../components/AgentPipelineStatus";
-import { CompliancePanel } from "../components/CompliancePanel";
 import { ControlPanel } from "../components/ControlPanel";
-import { ExcludedFundsPanel } from "../components/ExcludedFundsPanel";
 import { FundEvidencePanel } from "../components/FundEvidencePanel";
 import { FundPoolStatusCard } from "../components/FundPoolStatusCard";
 import { FundRankingTable } from "../components/FundRankingTable";
@@ -31,6 +30,10 @@ import { ReviewActions } from "../components/ReviewActions";
 import { Badge } from "../components/ui/badge";
 
 export function CampaignWorkbench() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view = searchParams.get("tab") === "result" ? "result" : "pre";
+  const urlFundCode = searchParams.get("fund") ?? "";
+
   const [hotspot, setHotspot] = useState("AI算力");
   const [channel, setChannel] = useState("招商银行");
   const [riskPreference, setRiskPreference] = useState("平衡型");
@@ -54,6 +57,40 @@ export function CampaignWorkbench() {
   const [fundSyncMessage, setFundSyncMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
+
+  // Sync URL → selected fund
+  useEffect(() => {
+    if (view === "result" && urlFundCode && result) {
+      const exists = result.recommended_funds.some((f) => f.fund_code === urlFundCode);
+      if (exists && selectedFundCode !== urlFundCode) {
+        setSelectedFundCode(urlFundCode);
+      }
+    }
+  }, [urlFundCode, result, view]);
+
+  // When result appears, set URL to result view
+  useEffect(() => {
+    if (result && view === "pre") {
+      const params = new URLSearchParams();
+      params.set("tab", "result");
+      if (selectedFundCode) params.set("fund", selectedFundCode);
+      setSearchParams(params, { replace: true });
+    }
+  }, [result]);
+
+  // When fund selection changes, update URL
+  const handleFundSelect = useCallback(
+    (fundCode: string) => {
+      setSelectedFundCode(fundCode);
+      if (view === "result") {
+        const params = new URLSearchParams();
+        params.set("tab", "result");
+        params.set("fund", fundCode);
+        setSearchParams(params, { replace: true });
+      }
+    },
+    [view, setSearchParams],
+  );
 
   useEffect(() => {
     let active = true;
@@ -180,7 +217,8 @@ export function CampaignWorkbench() {
         top_k: topK,
       });
       setResult(response);
-      setSelectedFundCode(response.recommended_funds[0]?.fund_code ?? "");
+      const firstCode = response.recommended_funds[0]?.fund_code ?? "";
+      setSelectedFundCode(firstCode);
     } catch (err) {
       setError(err instanceof Error ? err.message : "请求失败");
     } finally {
@@ -210,10 +248,20 @@ export function CampaignWorkbench() {
     }
   }
 
+  // Navigate back to pre-analysis
+  function handleBackToPre() {
+    setSearchParams({}, { replace: true });
+    setResult(null);
+    setSelectedFundCode("");
+  }
+
   const selectedHotspot = todayHotspots.find((item) => item.name === hotspot);
   const updatedTime = hotspotsUpdatedAt
     ? new Date(hotspotsUpdatedAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })
     : "--:--";
+
+  // Determine which view to show based on URL
+  const showResult = view === "result" && result !== null;
 
   return (
     <main className="min-h-screen bg-white">
@@ -249,6 +297,15 @@ export function CampaignWorkbench() {
               onSync={handleFundSync}
             />
             <AgentPipelineStatus hasResult={Boolean(result)} loading={loading} />
+            {showResult && (
+              <button
+                type="button"
+                onClick={handleBackToPre}
+                className="w-full rounded-md border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary"
+              >
+                ← 返回分析前
+              </button>
+            )}
           </div>
         </aside>
 
@@ -256,10 +313,12 @@ export function CampaignWorkbench() {
           <header className="mb-5 flex flex-col justify-between gap-4 border-b pb-5 lg:flex-row lg:items-end">
             <div className="space-y-2">
               <h1 className="text-2xl font-semibold tracking-normal">
-                基金热点选品与渠道支持
+                {showResult ? "分析结果" : "基金热点选品与渠道支持"}
               </h1>
               <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                基于公开行情、热点新闻和本地基金池，生成候选基金、渠道文案和合规检查结果。
+                {showResult
+                  ? `${result.hotspot_analysis.hotspot} · ${result.channel_strategy.channel} · ${riskPreference}`
+                  : "基于公开行情、热点新闻和本地基金池，生成候选基金、渠道文案和合规检查结果。"}
               </p>
             </div>
             <div className="grid grid-cols-3 gap-6 text-right text-sm">
@@ -269,7 +328,7 @@ export function CampaignWorkbench() {
             </div>
           </header>
 
-          {!result && (
+          {!showResult && (
             <PreAnalysisDashboard
               hotspot={hotspot}
               channel={channel}
@@ -289,22 +348,12 @@ export function CampaignWorkbench() {
             />
           )}
 
-          {result && (
+          {showResult && (
             <div className="space-y-8">
-              <ReviewActions result={result} />
-
-              <div className="flex flex-wrap items-center gap-x-8 gap-y-2 rounded-md border bg-card px-5 py-3 text-sm">
-                <StatItem label="热点" value={result.hotspot_analysis.hotspot} />
-                <StatItem label="候选基金" value={`${result.recommended_funds.length} 只（通过 P0 初筛）`} />
-                <StatItem label="已筛基金" value={`${result.screened_count} 只 / ${result.excluded_count} 只被拦截`} />
-                <StatItem label="渠道" value={`${result.channel_strategy.channel} · ${riskPreference}`} />
-                <StatItem label="合规" value={result.compliance.passed ? "基础规则通过" : "需复核"} />
-              </div>
-
               <FundRankingTable
                 funds={result.recommended_funds}
                 selectedFundCode={selectedFund?.fund_code ?? ""}
-                onSelect={setSelectedFundCode}
+                onSelect={handleFundSelect}
               />
 
               {selectedFund && (
@@ -313,10 +362,7 @@ export function CampaignWorkbench() {
 
               <HotspotAnalysisSection response={result} selectedHotspot={selectedHotspot} />
 
-              <div className="grid gap-8 xl:grid-cols-2">
-                <MarketingCopyPanel copy={result.marketing_copy} strategy={result.channel_strategy} />
-                <CompliancePanel compliance={result.compliance} />
-              </div>
+              <MarketingCopyPanel copy={result.marketing_copy} strategy={result.channel_strategy} />
 
               {selectedFund && (
                 <section>
@@ -345,7 +391,7 @@ export function CampaignWorkbench() {
                 </section>
               )}
 
-              <ExcludedFundsPanel funds={result.excluded_funds} />
+              <ReviewActions result={result} />
             </div>
           )}
         </section>
@@ -414,15 +460,6 @@ function HeaderMetric({ label, value }: { label: string; value: string }) {
     <div className="rounded-md border bg-background px-3 py-2">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="mt-1 font-semibold">{value}</div>
-    </div>
-  );
-}
-
-function StatItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline gap-2">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="font-medium">{value}</span>
     </div>
   );
 }
