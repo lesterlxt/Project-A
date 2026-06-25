@@ -154,6 +154,11 @@ Already done or in progress:
 - config-driven rules;
 - optional stock industry mapping service;
 - `/api/options` for frontend defaults.
+- backend-driven scoring formula metadata for the workbench and score breakdown.
+- market/fund allocation reference table backed by public quote APIs with empty states when market data is unavailable.
+- E Fund official fund supermarket sample in the pre-analysis dashboard.
+- simplified pre-analysis UI with a single vertical content flow and fewer small cards.
+- fund-pool card hides backend enhanced-count implementation detail and explains the 3,000-fund screening logic.
 
 ### Milestone 1: P0 Trust Layer
 
@@ -170,9 +175,9 @@ Initial implementation:
 
 Remaining refinements:
 
-- expose score formulas from backend config instead of hardcoding frontend explanations;
 - paginate or query excluded funds instead of returning only a sample;
 - add more official product fields when data sources are available.
+- decide whether E Fund official supermarket data should be joined into the local fund pool or remain a read-only reference module.
 
 Frontend should show:
 
@@ -193,13 +198,14 @@ Initial implementation:
 - same-category rank fields;
 - stock-industry mapping table shape without default seed data;
 - explanation points that reference fields and sources.
+- score formula metadata returned by `/api/options` and rendered in the frontend.
 
 Remaining refinements:
 
 - same-category score normalization;
 - full real stock-industry data import;
 - holding-weight-based industry exposure when holdings weights are available;
-- backend-driven score formula metadata for every score component.
+- richer score input traces for every score component.
 
 Frontend should show:
 

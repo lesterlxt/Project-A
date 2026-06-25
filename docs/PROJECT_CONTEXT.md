@@ -98,9 +98,9 @@ Left sidebar:
 
 Right side before analysis:
   PreAnalysisDashboard
-  Shows system status, hotspot news, heat-score chart, fund-pool distribution,
-  risk-level distribution, current config, multi-agent workflow preview,
-  scoring model intro, output preview, and compliance reminder.
+  Uses a single vertical main column.
+  Shows current config, hotspot news, market/fund allocation reference,
+  E Fund official supermarket sample, fund-pool structure, and analysis boundary.
 
 Right side after analysis:
   ReviewActions
@@ -112,6 +112,14 @@ Right side after analysis:
   compliance panel
   suitability boundary
 ```
+
+`/api/options` also returns scoring formula metadata. The pre-analysis dashboard and `ScoreBreakdown` render this backend-driven model instead of duplicating formula text in frontend components.
+
+`/api/market/overview` returns the dashboard market reference table. Current quotes come from Eastmoney, A-share one-month performance uses Tencent daily kline, and overseas/history fallbacks use Yahoo Finance chart data. The frontend does not mock unavailable market values.
+
+`/api/efunds/supermarket` returns a small read-only sample from the E Fund official fund supermarket page. It is shown only as official product-page context in the pre-analysis dashboard; the UI intentionally does not show purchase/subscription buttons.
+
+Fund-pool sync currently keeps the implementation detail of "enhanced count" in the backend logs only. The frontend explains the business-facing screening logic instead: read public fund codes, apply configured theme keywords, and keep the first 3,000 matching funds as the local SQLite candidate pool.
 
 Backend:
 
@@ -238,6 +246,7 @@ fund sync keywords
 risk level derivation
 suitable-client wording
 fund type filter rules
+scoring formula metadata for frontend display
 channel risk scores
 risk preference scores
 scoring weights
@@ -402,7 +411,7 @@ Most important:
 2. Suitability hard blocking: initial implementation exists in EligibilityAgent
 3. Candidate-fund wording instead of direct recommendation wording: started in frontend
 4. data_quality_score and exclusion_reasons per returned fund: implemented
-5. Formula and metric explanation visible in the frontend: basic explanation added, backend-driven formulas still needed
+5. Formula and metric explanation visible in the frontend: backend-driven scoring metadata is returned by `/api/options`
 ```
 
 Important for business value:
@@ -434,7 +443,6 @@ real industry mapping data
 holding-weight-based industry exposure
 formal review workflow
 Feishu chatbot endpoint
-backend-driven formula metadata
 ```
 
 ## What Is Not Necessary Yet

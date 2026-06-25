@@ -3,13 +3,17 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   AppOptions,
   CampaignResponse,
+  EFundSupermarketResponse,
   FundPoolStatus,
   FundPoolSummary,
+  MarketOverviewResponse,
   RecommendedFund,
   TodayHotspot,
   fetchAppOptions,
+  fetchEFundSupermarket,
   fetchFundPoolSummary,
   fetchFundPoolStatus,
+  fetchMarketOverview,
   fetchTodayHotspots,
   runCampaign,
   syncRealFunds,
@@ -41,6 +45,12 @@ export function CampaignWorkbench() {
   const [hotspotsLoading, setHotspotsLoading] = useState(false);
   const [fundStatus, setFundStatus] = useState<FundPoolStatus | null>(null);
   const [fundSummary, setFundSummary] = useState<FundPoolSummary | null>(null);
+  const [marketOverview, setMarketOverview] = useState<MarketOverviewResponse | null>(null);
+  const [marketLoading, setMarketLoading] = useState(false);
+  const [marketError, setMarketError] = useState("");
+  const [efundSupermarket, setEfundSupermarket] = useState<EFundSupermarketResponse | null>(null);
+  const [efundLoading, setEfundLoading] = useState(false);
+  const [efundError, setEfundError] = useState("");
   const [options, setOptions] = useState<AppOptions | null>(null);
   const [fundSyncing, setFundSyncing] = useState(false);
   const [fundSyncMessage, setFundSyncMessage] = useState("");
@@ -100,6 +110,56 @@ export function CampaignWorkbench() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    async function loadMarketOverview() {
+      setMarketLoading(true);
+      try {
+        const response = await fetchMarketOverview();
+        if (!active) return;
+        setMarketOverview(response);
+        setMarketError("");
+      } catch (err) {
+        if (!active) return;
+        setMarketOverview(null);
+        setMarketError(err instanceof Error ? err.message : "市场数据暂不可用");
+      } finally {
+        if (active) setMarketLoading(false);
+      }
+    }
+
+    loadMarketOverview();
+    const timer = window.setInterval(loadMarketOverview, 30_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    setEfundLoading(true);
+    fetchEFundSupermarket()
+      .then((response) => {
+        if (!active) return;
+        setEfundSupermarket(response);
+        setEfundError("");
+      })
+      .catch((err) => {
+        if (!active) return;
+        setEfundSupermarket(null);
+        setEfundError(err instanceof Error ? err.message : "易方达基金超市数据暂不可用");
+      })
+      .finally(() => {
+        if (active) setEfundLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const selectedFund = useMemo<RecommendedFund | null>(() => {
     if (!result) return null;
     return (
@@ -140,7 +200,7 @@ export function CampaignWorkbench() {
         enrichLimit: options?.fund_sync_defaults.enrich_limit,
         keywords: options?.fund_sync_defaults.keywords,
       });
-      setFundSyncMessage(`已同步 ${response.synced_count} 只基金，增强 ${response.enriched_count} 只。`);
+      setFundSyncMessage(`已同步 ${response.synced_count} 只基金。`);
       const status = await fetchFundPoolStatus();
       setFundStatus(status);
       const summary = await fetchFundPoolSummary();
@@ -158,9 +218,9 @@ export function CampaignWorkbench() {
     : "--:--";
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-screen bg-white">
       <div className="grid min-h-screen grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <aside className="border-r bg-white/80 p-4 backdrop-blur xl:sticky xl:top-0 xl:h-screen xl:overflow-y-auto">
+        <aside className="border-r bg-white p-4 xl:sticky xl:top-0 xl:h-screen xl:overflow-y-auto">
           <div className="mb-4">
             <div className="text-lg font-semibold">Project A</div>
             <div className="text-sm text-muted-foreground">基金热点选品与营销工作台</div>
@@ -195,23 +255,18 @@ export function CampaignWorkbench() {
         </aside>
 
         <section className="p-4 md:p-6">
-          <header className="mb-5 flex flex-col justify-between gap-4 rounded-lg border bg-card p-5 shadow-panel lg:flex-row lg:items-center">
+          <header className="mb-5 flex flex-col justify-between gap-4 border-b pb-5 lg:flex-row lg:items-end">
             <div className="space-y-2">
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="info">DeepSeek</Badge>
-                <Badge variant="success">公开基金池</Badge>
-                <Badge variant="warning">推导字段已标记</Badge>
-              </div>
-              <h1 className="text-2xl font-semibold tracking-normal md:text-3xl">
-                AI热点驱动的基金智能选品与营销生成平台
+              <h1 className="text-2xl font-semibold tracking-normal">
+                基金热点选品与渠道支持
               </h1>
               <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                当前页面把系统初筛拆成数据来源、打分逻辑、渠道文案和合规结果，避免让候选基金看起来像 AI 直接拍脑袋。
+                基于公开行情、热点新闻和本地基金池，生成可复核的候选基金、渠道文案和合规检查结果。
               </p>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-right text-sm">
+            <div className="grid grid-cols-3 gap-6 text-right text-sm">
               <HeaderMetric label="基金池" value={fundStatus?.total_count ? fundStatus.total_count.toLocaleString("zh-CN") : "--"} />
-              <HeaderMetric label="增强" value={fundStatus?.enriched_count ? String(fundStatus.enriched_count) : "--"} />
+              <HeaderMetric label="存储" value={fundStatus?.storage || "SQLite"} />
               <HeaderMetric label="热点更新" value={updatedTime} />
             </div>
           </header>
@@ -225,9 +280,13 @@ export function CampaignWorkbench() {
               topK={topK}
               todayHotspots={todayHotspots}
               hotspotsLoading={hotspotsLoading}
-              updatedTime={updatedTime}
-              fundStatus={fundStatus}
               fundSummary={fundSummary}
+              marketOverview={marketOverview}
+              marketLoading={marketLoading}
+              marketError={marketError}
+              efundSupermarket={efundSupermarket}
+              efundLoading={efundLoading}
+              efundError={efundError}
               onHotspotSelect={setHotspot}
             />
           )}
@@ -252,7 +311,7 @@ export function CampaignWorkbench() {
                     onSelect={setSelectedFundCode}
                   />
                   <ExcludedFundsPanel funds={result.excluded_funds} />
-                  {selectedFund && <ScoreBreakdown fund={selectedFund} />}
+                  {selectedFund && <ScoreBreakdown fund={selectedFund} scoringModel={options?.scoring_model ?? []} />}
                 </div>
 
                 <div className="space-y-5">

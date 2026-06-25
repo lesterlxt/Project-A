@@ -53,10 +53,14 @@ A 项目：AI 热点驱动的基金智能选品与营销生成平台
 - **热点发现**：Google News RSS + DeepSeek 提炼每日市场热点。
 - **热点研究 Agent**：把热点拆成主题、行业、关键词、机会和风险。
 - **基金池同步**：从东方财富/天天基金公开接口同步基金基础信息、净值、经理、持仓代码、收益和风险指标。
+- **基金池筛选说明**：前端不再展示“增强 99”这类实现细节，只说明基金池来源、更新时间、存储位置和默认筛选逻辑。
 - **规则配置化**：基金同步关键词、风险等级推导、评分权重、基金类型筛选、渠道风险偏好等集中放在 `recommendation_rules.json`。
 - **候选基金排序**：基于主题相关度、持仓/行业匹配、产品定位、表现稳定性和渠道匹配计算分数。
+- **市场与基金配置参考**：分析前 Dashboard 展示宽基、成长、红利、债券、港股科技和海外科技指标，行情来自公开实时接口，失败时显示空状态。
+- **易方达官网基金超市对照**：分析前 Dashboard 展示易方达官网基金超市样本，作为官方产品页对照，不做交易软件式购买入口。
+- **后端评分模型说明**：`/api/options` 返回评分公式、分值上限和证据字段，前端仪表盘与分数拆解面板不再硬编码评分说明。
 - **字段来源标记**：前端区分真实接口字段、系统计算字段、规则推导字段、AI 生成字段和缺失字段。
-- **分析前 Dashboard**：未生成结果前，右侧展示系统状态、热点新闻、热度图、基金池分布、风险等级分布、多 Agent 流程和评分模型说明。
+- **分析前 Dashboard**：未生成结果前，主面板纵向展示分析配置、热点新闻、市场与基金配置参考、基金池结构和分析边界。
 - **渠道营销文案**：根据不同银行渠道画像生成客户经理话术、社媒文案和长文。
 - **基础合规检查**：禁用词扫描和必要风险语句核验。
 - **审核稿导出**：导出 Markdown 审核稿，供人工复核。
@@ -131,7 +135,7 @@ P0 已开始落地：
 P0 仍可继续增强：
 
 - 展示更多被排除基金，后续可做分页。
-- 把评分公式从后端配置完整返回给前端。
+- 继续补充官方产品字段和更完整的数据质量规则。
 
 P1 后续完善：
 
@@ -139,7 +143,8 @@ P1 后续完善：
 6. 已新增 `stock_industry_map` 表结构；默认不再写入行业 seed，旧 `manual_seed` 会被清理/忽略，完整真实行业数据仍需后续接入。
 7. 已新增结构化解释证据点，前端展示字段来源和依据字段。
 8. 评分卡已展示综合分、基金网站来源、热点来源、风险指标和适当性规则边界。
-9. 初始空白页已重构为 Pre-analysis Dashboard，热点 Top 5 从左侧移到右侧新闻/图表区。
+9. 初始空白页已重构为 Pre-analysis Dashboard，热点 Top 5 集中放在主面板热点新闻区。
+10. `/api/options` 已返回评分模型元数据，前端评分说明来自后端规则配置。
 
 P2 技术升级：
 
@@ -154,10 +159,13 @@ P2 技术升级：
 - `fund.eastmoney.com/js/fundcode_search.js`
 - `fund.eastmoney.com/pingzhongdata/{fund_code}.js`
 - `fundgz.1234567.com.cn/js/{fund_code}.js`
+- `efunds.com.cn/lm/jjcp/` 只用于展示易方达官网基金超市样本对照，不替代本地全市场候选基金池。
 
 需要注意：
 
 - `funds.db` 是本地 SQLite 缓存，已被 `.gitignore` 忽略。
+- 默认基金池同步逻辑是：先读取公开基金代码列表，再按系统配置的主题关键词筛选，默认保留前 3,000 只进入本地候选基金池。
+- 基金详情增强仍在后端执行，用于经理、收益、持仓、风险等级等字段补全；前端不展示“增强数量”，避免把内部数据处理细节当成业务指标。
 - 旧的 CSV mock/fallback 数据已删除。
 - 当前行业配置仍可能来自规则推导；真实行业映射入口已预留，但需要后续灌入 `stock_industry_map`。
 - `stock_industry_map` 默认只建表、不自动 seed；`source='manual_seed'` 的旧记录不会参与行业聚合。
@@ -218,6 +226,8 @@ curl -X POST http://127.0.0.1:8000/api/funds/sync \
 | GET | `/api/llm-status` | DeepSeek 配置状态 |
 | GET | `/api/options` | 前端选项和默认参数 |
 | GET | `/api/hotspots/today` | 今日热点 Top 5 |
+| GET | `/api/market/overview` | 市场与基金配置参考表行情 |
+| GET | `/api/efunds/supermarket` | 易方达官网基金超市样本 |
 | GET | `/api/funds/status` | 基金池状态 |
 | GET | `/api/funds/summary` | 基金池类型和风险等级分布 |
 | POST | `/api/funds/sync` | 同步基金池 |
@@ -243,6 +253,8 @@ backend/app/
 │   ├── fund_scorer.py
 │   ├── stock_industry_mapper.py
 │   ├── rule_config.py
+│   ├── market_data_service.py
+│   ├── efund_supermarket_service.py
 │   ├── compliance.py
 │   ├── hotspot_provider.py
 │   └── llm_client.py
@@ -257,6 +269,8 @@ frontend/src/
 ├── components/
 │   ├── ControlPanel.tsx
 │   ├── PreAnalysisDashboard.tsx
+│   ├── FundMarketOverviewTable.tsx
+│   ├── EFundSupermarketTable.tsx
 │   ├── FundPoolStatusCard.tsx
 │   ├── AgentPipelineStatus.tsx
 │   ├── FundRankingTable.tsx

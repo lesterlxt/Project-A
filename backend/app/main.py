@@ -3,10 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.agents.fund_data_agent import FundDataAgent
 from app.orchestrator.campaign_orchestrator import CampaignOrchestrator
-from app.schemas import AppOptionsResponse, CampaignRequest, CampaignResponse, FundPoolStatusResponse, FundPoolSummaryResponse, FundSyncRequest, FundSyncResponse, HotspotAnalysisRequest, HotspotAnalysisResponse, TodayHotspotsResponse
+from app.schemas import AppOptionsResponse, CampaignRequest, CampaignResponse, EFundSupermarketResponse, FundPoolStatusResponse, FundPoolSummaryResponse, FundSyncRequest, FundSyncResponse, HotspotAnalysisRequest, HotspotAnalysisResponse, MarketOverviewResponse, TodayHotspotsResponse
+from app.services.efund_supermarket_service import EFundSupermarketService
 from app.services.fund_data_provider import FundDataProviderError
 from app.services.hotspot_provider import HotspotProviderError, NewsHotspotProvider
 from app.services.llm_client import DeepSeekClient
+from app.services.market_data_service import MarketDataService
 from app.services.rule_config import load_rule_config
 
 app = FastAPI(
@@ -30,6 +32,8 @@ app.add_middleware(
 orchestrator = CampaignOrchestrator()
 hotspot_provider = NewsHotspotProvider()
 fund_data_agent = FundDataAgent()
+market_data_service = MarketDataService()
+efund_supermarket_service = EFundSupermarketService()
 
 
 @app.get("/api/health")
@@ -72,6 +76,16 @@ def fund_pool_status() -> FundPoolStatusResponse:
 @app.get("/api/funds/summary", response_model=FundPoolSummaryResponse)
 def fund_pool_summary() -> FundPoolSummaryResponse:
     return FundPoolSummaryResponse(**orchestrator.fund_loader.summary())
+
+
+@app.get("/api/market/overview", response_model=MarketOverviewResponse)
+def market_overview() -> MarketOverviewResponse:
+    return market_data_service.overview()
+
+
+@app.get("/api/efunds/supermarket", response_model=EFundSupermarketResponse)
+def efund_supermarket() -> EFundSupermarketResponse:
+    return efund_supermarket_service.snapshot()
 
 
 @app.get("/api/options", response_model=AppOptionsResponse)

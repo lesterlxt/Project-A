@@ -1,31 +1,15 @@
-import { RecommendedFund } from "../api/campaignApi";
+import { RecommendedFund, ScoreFormula } from "../api/campaignApi";
 import { sourceLabel } from "./SourceBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 
-const labels: Record<string, string> = {
-  theme_relevance: "主题相关度",
-  holding_match: "持仓匹配度",
-  positioning_match: "产品定位匹配",
-  performance_stability: "表现稳定性",
-  channel_match: "渠道匹配度",
-  compliance_penalty: "合规扣分",
-};
-
-const formulas: Record<string, string> = {
-  theme_relevance: "命中热点主题、行业、关键词的去重比例 x 主题权重，上限由规则配置控制。",
-  holding_match: "命中热点行业的行业暴露比例 x 持仓匹配权重；行业暴露可能来自真实映射或规则推导。",
-  positioning_match: "基金产品定位标签命中热点主题的数量 x 单标签分值。",
-  performance_stability: "基础分 - 波动率扣分 - 最大回撤扣分 - 近一年负收益扣分。",
-  channel_match: "银行渠道风险偏好分 x 渠道权重 + 用户风险偏好分 x 偏好权重。",
-  compliance_penalty: "当前为高风险产品匹配稳健型偏好时的规则扣分；P0 后由硬拦截优先处理。",
-};
-
 type Props = {
   fund: RecommendedFund;
+  scoringModel: ScoreFormula[];
 };
 
-export function ScoreBreakdown({ fund }: Props) {
+export function ScoreBreakdown({ fund, scoringModel }: Props) {
   const items = Object.entries(fund.score_breakdown);
+  const formulaByKey = new Map(scoringModel.map((item) => [item.key, item]));
 
   return (
     <Card>
@@ -43,10 +27,11 @@ export function ScoreBreakdown({ fund }: Props) {
         </div>
         {items.map(([key, value]) => {
           const width = Math.min(Math.abs(value) * 2.6, 100);
+          const formula = formulaByKey.get(key);
           return (
             <div key={key} className="space-y-1.5">
               <div className="flex items-center justify-between gap-3 text-sm">
-                <span className="text-muted-foreground">{labels[key]}</span>
+                <span className="text-muted-foreground">{formula?.label ?? key}</span>
                 <strong>{value}</strong>
               </div>
               <div className="h-2 rounded-full bg-secondary">
@@ -55,7 +40,9 @@ export function ScoreBreakdown({ fund }: Props) {
                   style={{ width: `${width}%` }}
                 />
               </div>
-              <p className="text-xs leading-5 text-muted-foreground">{formulas[key]}</p>
+              <p className="text-xs leading-5 text-muted-foreground">
+                {formula ? `${formula.formula}。${formula.description}` : "后端规则公式计算。"}
+              </p>
             </div>
           );
         })}

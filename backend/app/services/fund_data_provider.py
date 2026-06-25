@@ -1,4 +1,5 @@
 import json
+import logging
 import math
 import re
 import sqlite3
@@ -17,12 +18,20 @@ from app.services.stock_industry_mapper import StockIndustryMapper
 
 
 DB_PATH = Path(__file__).resolve().parents[1] / "data" / "funds.db"
+LOGGER = logging.getLogger(__name__)
+
 
 @dataclass(frozen=True)
 class FundCandidate:
     code: str
     name: str
     fund_type: str
+
+
+@dataclass(frozen=True)
+class EnrichmentFailure:
+    candidate: FundCandidate
+    reason: str
 
 
 class FundDataProviderError(RuntimeError):
@@ -57,10 +66,9 @@ class EastmoneyFundDataProvider:
         self.stock_industry_mapper.ensure_table()
 
         # ---- Phase 2: parallel enrichment (thread pool) ----
-        enrich_candidates = selected[:enrich_limit]
         enriched_count = 0
-        if enrich_candidates:
-            enriched_rows = self._enrich_parallel(enrich_candidates)
+        if enrich_limit > 0:
+            enriched_rows = self._enrich_until_target(selected, enrich_limit)
             enriched_count = len(enriched_rows)
             # Merge enriched fields back into the DB
             if enriched_rows:
@@ -142,10 +150,50 @@ class EastmoneyFundDataProvider:
     # Phase 2: parallel enrichment
     # ------------------------------------------------------------------
 
-    def _enrich_parallel(self, candidates: list[FundCandidate]) -> list[dict[str, str]]:
+    def _enrich_until_target(
+        self,
+        candidates: list[FundCandidate],
+        target_count: int,
+    ) -> list[dict[str, str]]:
+        """Keep trying candidates until the requested number is enriched or the pool is exhausted."""
+        enriched: list[dict[str, str]] = []
+        attempted_count = 0
+        failure_count = 0
+
+        while len(enriched) < target_count and attempted_count < len(candidates):
+            remaining = target_count - len(enriched)
+            batch = candidates[attempted_count:attempted_count + remaining]
+            attempted_count += len(batch)
+            rows, failures = self._enrich_parallel(batch)
+            enriched.extend(rows)
+            failure_count += len(failures)
+            for failure in failures:
+                LOGGER.warning(
+                    "Fund enrichment failed: code=%s name=%s reason=%s",
+                    failure.candidate.code,
+                    failure.candidate.name,
+                    failure.reason,
+                )
+
+        if failure_count:
+            LOGGER.info(
+                "Fund enrichment completed with retries: target=%s successful=%s attempted=%s failed=%s",
+                target_count,
+                len(enriched),
+                attempted_count,
+                failure_count,
+            )
+
+        return enriched[:target_count]
+
+    def _enrich_parallel(self, candidates: list[FundCandidate]) -> tuple[list[dict[str, str]], list[EnrichmentFailure]]:
         """Fetch fund details in parallel using a thread pool (10 workers)."""
         enriched: list[dict[str, str]] = []
+        failures: list[EnrichmentFailure] = []
         max_workers = min(10, len(candidates))
+
+        if max_workers <= 0:
+            return enriched, failures
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_map = {
@@ -158,18 +206,22 @@ class EastmoneyFundDataProvider:
                     row = future.result()
                     if row:
                         enriched.append(row)
-                except Exception:
-                    # Single fund failure should not block the whole batch
-                    pass
+                    else:
+                        failures.append(EnrichmentFailure(candidate, "no detail or quote response"))
+                except Exception as exc:
+                    failures.append(EnrichmentFailure(candidate, f"{type(exc).__name__}: {exc}"))
 
-        return enriched
+        return enriched, failures
 
     def _enrich_one(self, candidate: FundCandidate) -> dict[str, str] | None:
         """Fetch detail + quote for a single fund. Returns merged row or None on failure."""
         try:
             details = self._fetch_detail(candidate.code)
             quote = self._fetch_quote(candidate.code)
-        except Exception:
+        except Exception as exc:
+            raise FundDataProviderError(f"detail fetch failed: {exc}") from exc
+
+        if not details and not quote:
             return None
 
         # Manager

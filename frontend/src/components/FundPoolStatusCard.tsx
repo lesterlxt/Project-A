@@ -33,12 +33,15 @@ export function FundPoolStatusCard({ status, syncing, message, onSync }: Props) 
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <Metric label="基金数量" value={status?.total_count ?? 0} />
-          <Metric label="增强数据" value={status?.enriched_count ?? 0} />
+        <div className="border-b pb-3">
+          <div className="text-xs text-muted-foreground">基金数量</div>
+          <div className="mt-1 text-2xl font-semibold">{(status?.total_count ?? 0).toLocaleString("zh-CN")}</div>
         </div>
-        <div className="space-y-1 text-xs text-muted-foreground">
+        <div className="space-y-2 text-xs leading-5 text-muted-foreground">
           <p>来源：{status?.source || "东方财富 / 天天基金公开接口"}</p>
+          <p>
+            筛选逻辑：先读取公开基金代码列表，再按系统配置的主题关键词筛选，默认保留前 3,000 只进入本地候选基金池。
+          </p>
           <p>更新：{updatedAt}</p>
           <p>存储：{status?.storage || "SQLite"}</p>
         </div>
@@ -49,14 +52,5 @@ export function FundPoolStatusCard({ status, syncing, message, onSync }: Props) 
         {message && <p className="text-xs leading-5 text-muted-foreground">{message}</p>}
       </CardContent>
     </Card>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-md border bg-background p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 text-xl font-semibold">{value.toLocaleString("zh-CN")}</div>
-    </div>
   );
 }

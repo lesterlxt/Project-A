@@ -56,7 +56,9 @@ export function FundRankingTable({ funds, selectedFundCode, onSelect }: Props) {
                 <span className="text-xs text-muted-foreground">同组 {fund.category_rank}/{fund.category_total}</span>
               )}
               <span className="text-xs text-muted-foreground">质量 {fund.data_quality_score.toFixed(0)}</span>
-              <Badge variant={fund.is_enriched ? "success" : "warning"}>{fund.is_enriched ? "增强" : "基础"}</Badge>
+              <Badge variant={fund.is_enriched ? "success" : "warning"}>
+                {fund.is_enriched ? "详情字段" : "基础字段"}
+              </Badge>
             </span>
           </button>
         ))}

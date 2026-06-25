@@ -78,6 +78,47 @@ class FundPoolSummaryResponse(BaseModel):
     risk_level_distribution: list[DistributionItem]
 
 
+class MarketOverviewItem(BaseModel):
+    market_dimension: str
+    indicator_name: str
+    latest_value: float | None
+    change_value: float | None
+    change_percent: float | None
+    one_month_percent: float | None
+    interpretation: str
+    related_fund_types: list[str]
+    channel_scenario: str
+    status: str
+    source: str
+
+
+class MarketOverviewResponse(BaseModel):
+    updated_at: str
+    source: str
+    refresh_interval_seconds: int
+    items: list[MarketOverviewItem]
+
+
+class EFundSupermarketItem(BaseModel):
+    fund_code: str
+    fund_name: str
+    fund_type: str
+    risk_level: str
+    manager: str
+    net_value: str
+    trade_date: str
+    daily_change_percent: float | None
+    one_month_percent: float | None
+    one_year_percent: float | None
+
+
+class EFundSupermarketResponse(BaseModel):
+    updated_at: str
+    source: str
+    total_count: int
+    items: list[EFundSupermarketItem]
+
+
 class FundSyncDefaults(BaseModel):
     limit: int
     enrich_limit: int
@@ -92,12 +133,22 @@ class CampaignDefaults(BaseModel):
     top_k: int
 
 
+class ScoreFormula(BaseModel):
+    key: str
+    label: str
+    formula: str
+    description: str
+    max_score: float | None = None
+    evidence_fields: list[str] = Field(default_factory=list)
+
+
 class AppOptionsResponse(BaseModel):
     channels: list[str]
     risk_preferences: list[str]
     fund_type_filters: list[str]
     defaults: CampaignDefaults
     fund_sync_defaults: FundSyncDefaults
+    scoring_model: list[ScoreFormula]
 
 
 class CampaignRequest(BaseModel):

@@ -71,6 +71,47 @@ export type FundPoolSummary = {
   risk_level_distribution: DistributionItem[];
 };
 
+export type MarketOverviewItem = {
+  market_dimension: string;
+  indicator_name: string;
+  latest_value: number | null;
+  change_value: number | null;
+  change_percent: number | null;
+  one_month_percent: number | null;
+  interpretation: string;
+  related_fund_types: string[];
+  channel_scenario: string;
+  status: string;
+  source: string;
+};
+
+export type MarketOverviewResponse = {
+  updated_at: string;
+  source: string;
+  refresh_interval_seconds: number;
+  items: MarketOverviewItem[];
+};
+
+export type EFundSupermarketItem = {
+  fund_code: string;
+  fund_name: string;
+  fund_type: string;
+  risk_level: string;
+  manager: string;
+  net_value: string;
+  trade_date: string;
+  daily_change_percent: number | null;
+  one_month_percent: number | null;
+  one_year_percent: number | null;
+};
+
+export type EFundSupermarketResponse = {
+  updated_at: string;
+  source: string;
+  total_count: number;
+  items: EFundSupermarketItem[];
+};
+
 export type AppOptions = {
   channels: string[];
   risk_preferences: string[];
@@ -87,6 +128,16 @@ export type AppOptions = {
     enrich_limit: number;
     keywords: string[];
   };
+  scoring_model: ScoreFormula[];
+};
+
+export type ScoreFormula = {
+  key: string;
+  label: string;
+  formula: string;
+  description: string;
+  max_score: number | null;
+  evidence_fields: string[];
 };
 
 export type ScoreBreakdown = {
@@ -230,6 +281,28 @@ export async function fetchFundPoolSummary(): Promise<FundPoolSummary> {
   if (!response.ok) {
     const message = await response.text();
     throw new Error(message || "基金池摘要获取失败");
+  }
+
+  return response.json();
+}
+
+export async function fetchMarketOverview(): Promise<MarketOverviewResponse> {
+  const response = await fetch(`${API_BASE}/api/market/overview`);
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "市场数据获取失败");
+  }
+
+  return response.json();
+}
+
+export async function fetchEFundSupermarket(): Promise<EFundSupermarketResponse> {
+  const response = await fetch(`${API_BASE}/api/efunds/supermarket`);
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "易方达基金超市数据获取失败");
   }
 
   return response.json();

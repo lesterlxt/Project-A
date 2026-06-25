@@ -20,7 +20,7 @@ export function FundEvidencePanel({ fund }: Props) {
             初筛依据
           </CardTitle>
           <Badge variant={fund.is_enriched ? "success" : "warning"}>
-            {fund.is_enriched ? "已增强" : "基础数据"}
+            {fund.is_enriched ? "详情字段已补全" : "基础字段"}
           </Badge>
         </div>
       </CardHeader>
