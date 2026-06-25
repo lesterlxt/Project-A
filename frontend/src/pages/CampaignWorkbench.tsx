@@ -26,7 +26,7 @@ import { FundRankingTable } from "../components/FundRankingTable";
 import { PreAnalysisDashboard } from "../components/PreAnalysisDashboard";
 import { ReviewActions } from "../components/ReviewActions";
 import { Badge } from "../components/ui/badge";
-import { CampaignContext, clearStorage, saveToStorage } from "../context/CampaignContext";
+import { CampaignContext, clearStorage, loadFromStorage, saveToStorage } from "../context/CampaignContext";
 
 export function CampaignWorkbench() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -186,6 +186,19 @@ export function CampaignWorkbench() {
       active = false;
     };
   }, []);
+
+  // Restore campaign from sessionStorage on mount (e.g. back from FundDetailPage)
+  useEffect(() => {
+    if (!result && view === "result") {
+      const stored = loadFromStorage();
+      if (stored?.result) {
+        setResult(stored.result);
+        if (stored.options) setOptions(stored.options);
+        const code = urlFundCode || stored.result.recommended_funds[0]?.fund_code || "";
+        setSelectedFundCode(code);
+      }
+    }
+  }, []); // run once on mount
 
   const selectedFund = useMemo<RecommendedFund | null>(() => {
     if (!result) return null;

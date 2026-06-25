@@ -10,7 +10,7 @@ export type CampaignContextValue = {
   riskPreference: string;
 };
 
-function loadFromStorage(): CampaignContextValue | null {
+export function loadFromStorage(): CampaignContextValue | null {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
