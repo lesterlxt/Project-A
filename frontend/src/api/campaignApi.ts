@@ -4,19 +4,39 @@ export type CampaignRequest = {
   risk_preference: string;
   fund_type_filter: string;
   top_k: number;
+  evidence_headlines?: string[];
+};
+
+export type DriverItem = {
+  title: string;
+  description: string;
+};
+
+export type OppRiskItem = {
+  title: string;
+  description: string;
+};
+
+export type IndustryChain = {
+  upstream: string[];
+  midstream: string[];
+  downstream: string[];
 };
 
 export type HotspotAnalysis = {
   hotspot: string;
+  insufficient_data: boolean;
   summary: string;
-  market_background: string;
-  industry_analysis: string;
-  investment_logic: string;
+  core_drivers: DriverItem[];
+  industry_chain: IndustryChain;
+  opportunities: OppRiskItem[];
+  risks: OppRiskItem[];
+  related_fund_directions: string[];
+  evidence_headlines: string[];
+  compliance_note: string;
   themes: string[];
   industries: string[];
   keywords: string[];
-  opportunities: string[];
-  risks: string[];
 };
 
 export type TodayHotspot = {

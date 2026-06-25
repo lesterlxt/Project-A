@@ -5,17 +5,37 @@ class HotspotAnalysisRequest(BaseModel):
     hotspot: str = Field(..., examples=["AI算力"])
 
 
+class DriverItem(BaseModel):
+    title: str = ""
+    description: str = ""
+
+
+class OppRiskItem(BaseModel):
+    title: str = ""
+    description: str = ""
+
+
+class IndustryChain(BaseModel):
+    upstream: list[str] = Field(default_factory=list)
+    midstream: list[str] = Field(default_factory=list)
+    downstream: list[str] = Field(default_factory=list)
+
+
 class HotspotAnalysisResponse(BaseModel):
     hotspot: str
-    summary: str
-    market_background: str = ""
-    industry_analysis: str = ""
-    investment_logic: str = ""
-    themes: list[str]
-    industries: list[str]
-    keywords: list[str]
-    opportunities: list[str]
-    risks: list[str]
+    insufficient_data: bool = False
+    summary: str = ""
+    core_drivers: list[DriverItem] = Field(default_factory=list)
+    industry_chain: IndustryChain = Field(default_factory=IndustryChain)
+    opportunities: list[OppRiskItem] = Field(default_factory=list)
+    risks: list[OppRiskItem] = Field(default_factory=list)
+    related_fund_directions: list[str] = Field(default_factory=list)
+    evidence_headlines: list[str] = Field(default_factory=list)
+    compliance_note: str = ""
+    # Flat lists for scoring compatibility and quick reference
+    themes: list[str] = Field(default_factory=list)
+    industries: list[str] = Field(default_factory=list)
+    keywords: list[str] = Field(default_factory=list)
 
 
 class NewsEvidence(BaseModel):
@@ -160,6 +180,7 @@ class CampaignRequest(BaseModel):
     risk_preference: str = Field(default="平衡型", examples=["平衡型"])
     fund_type_filter: str = Field(default="全部", examples=["权益"])
     top_k: int = Field(default=5, ge=1, le=10)
+    evidence_headlines: list[str] = Field(default_factory=list)
 
 
 class ScoreBreakdown(BaseModel):

@@ -97,7 +97,8 @@ class CopywritingAgent:
         )
         long_form = (
             f"本次营销主题为{hotspot_analysis.hotspot}。热点逻辑方面，{hotspot_analysis.summary}"
-            f"机会主要来自{hotspot_analysis.opportunities[0]}，但也需要关注{hotspot_analysis.risks[0]}。"
+            f"机会方面关注{hotspot_analysis.opportunities[0].title if hotspot_analysis.opportunities else '暂无'}，"
+            f"需要注意{hotspot_analysis.risks[0].title if hotspot_analysis.risks else '暂无'}。"
             f"结合{channel_strategy.channel}客户画像，文案表达建议突出{focus}，"
             f"避免使用短期收益导向或确定性收益表述。系统初筛靠前的候选产品为{lead_fund.fund_name}，"
             f"初筛依据包括主题相关度、持仓匹配、产品定位和风险等级适配。"

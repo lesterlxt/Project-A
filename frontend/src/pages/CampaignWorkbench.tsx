@@ -220,6 +220,7 @@ export function CampaignWorkbench() {
         risk_preference: riskPreference,
         fund_type_filter: fundTypeFilter,
         top_k: topK,
+        evidence_headlines: selectedHotspot?.evidence_headlines?.map((h) => h.title) ?? [],
       });
       setResult(response);
       const firstCode = response.recommended_funds[0]?.fund_code ?? "";
@@ -394,7 +395,25 @@ function HotspotAnalysisSection({
   response: CampaignResponse;
   selectedHotspot?: TodayHotspot;
 }) {
-  const { hotspot_analysis: h } = response;
+  const h = response.hotspot_analysis;
+
+  if (h.insufficient_data) {
+    return (
+      <section>
+        <div className="mb-3 flex items-center gap-2">
+          <LineChart size={17} className="text-muted-foreground" />
+          <h2 className="text-base font-semibold">热点主题分析</h2>
+          <span className="text-xs text-muted-foreground">AI 生成 · 需人工复核</span>
+        </div>
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-5">
+          <p className="text-sm leading-6 text-amber-900">
+            当前新闻数据不足，无法生成完整的结构化分析。建议人工补充相关新闻和市场数据后重新分析。
+          </p>
+          {h.summary && <p className="mt-2 text-sm leading-6 text-amber-800">{h.summary}</p>}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section>
@@ -403,78 +422,128 @@ function HotspotAnalysisSection({
         <h2 className="text-base font-semibold">热点主题分析</h2>
         <span className="text-xs text-muted-foreground">AI 生成 · 需人工复核</span>
       </div>
+
       <div className="space-y-5 rounded-md border p-5">
         {/* Summary */}
         <p className="text-sm leading-6">{h.summary}</p>
 
-        {/* Rich paragraphs */}
-        {h.market_background && (
+        {/* Core Drivers */}
+        {h.core_drivers.length > 0 && (
           <div>
-            <div className="mb-1.5 text-sm font-medium">市场背景</div>
-            <p className="text-sm leading-6 text-muted-foreground">{h.market_background}</p>
-          </div>
-        )}
-        {h.industry_analysis && (
-          <div>
-            <div className="mb-1.5 text-sm font-medium">行业传导</div>
-            <p className="text-sm leading-6 text-muted-foreground">{h.industry_analysis}</p>
-          </div>
-        )}
-        {h.investment_logic && (
-          <div>
-            <div className="mb-1.5 text-sm font-medium">配置逻辑</div>
-            <p className="text-sm leading-6 text-muted-foreground">{h.investment_logic}</p>
-          </div>
-        )}
-
-        {/* Tags — compact reference */}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1">
-            <div className="text-xs font-medium text-muted-foreground">主题</div>
-            <div className="flex flex-wrap gap-1">{h.themes.map((t) => <Badge key={t} variant="muted">{t}</Badge>)}</div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-xs font-medium text-muted-foreground">行业</div>
-            <div className="flex flex-wrap gap-1">{h.industries.map((t) => <Badge key={t} variant="muted">{t}</Badge>)}</div>
-          </div>
-          <div className="space-y-1 sm:col-span-2">
-            <div className="text-xs font-medium text-muted-foreground">关键词</div>
-            <div className="flex flex-wrap gap-1">{h.keywords.map((t) => <Badge key={t} variant="muted">{t}</Badge>)}</div>
-          </div>
-        </div>
-
-        {/* Opportunities & Risks */}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
-            <div className="mb-2 text-sm font-medium text-emerald-950">机会</div>
-            <ul className="space-y-1">
-              {h.opportunities.map((o) => (
-                <li key={o} className="text-sm leading-6 text-emerald-900">{o}</li>
-              ))}
-            </ul>
-          </div>
-          <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
-            <div className="mb-2 text-sm font-medium text-amber-950">风险</div>
-            <ul className="space-y-1">
-              {h.risks.map((r) => (
-                <li key={r} className="text-sm leading-6 text-amber-900">{r}</li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        {/* Evidence headlines */}
-        {selectedHotspot && (selectedHotspot.evidence_headlines?.length ?? 0) > 0 && (
-          <div>
-            <div className="mb-2 text-xs font-medium text-muted-foreground">来源新闻</div>
-            <div className="space-y-1">
-              {selectedHotspot.evidence_headlines?.slice(0, 3).map((headline) => (
-                <p key={`${headline.title}-${headline.source}`} className="text-xs leading-5 text-muted-foreground">
-                  {headline.source}：{headline.title}
-                </p>
+            <div className="mb-3 text-sm font-medium">核心驱动因素</div>
+            <div className="space-y-3">
+              {h.core_drivers.map((d, i) => (
+                <div key={d.title} className="flex gap-3">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+                    {i + 1}
+                  </span>
+                  <div>
+                    <div className="text-sm font-medium">{d.title}</div>
+                    <p className="mt-0.5 text-sm leading-6 text-muted-foreground">{d.description}</p>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
+        )}
+
+        {/* Industry Chain */}
+        {h.industry_chain && (h.industry_chain.upstream.length > 0 || h.industry_chain.midstream.length > 0 || h.industry_chain.downstream.length > 0) && (
+          <div>
+            <div className="mb-3 text-sm font-medium">产业链影响</div>
+            <div className="grid gap-2 text-sm">
+              {h.industry_chain.upstream.length > 0 && (
+                <div className="flex gap-3">
+                  <span className="shrink-0 text-xs font-medium text-muted-foreground">上游</span>
+                  <span>{h.industry_chain.upstream.join(" / ")}</span>
+                </div>
+              )}
+              {h.industry_chain.midstream.length > 0 && (
+                <div className="flex gap-3">
+                  <span className="shrink-0 text-xs font-medium text-muted-foreground">中游</span>
+                  <span>{h.industry_chain.midstream.join(" / ")}</span>
+                </div>
+              )}
+              {h.industry_chain.downstream.length > 0 && (
+                <div className="flex gap-3">
+                  <span className="shrink-0 text-xs font-medium text-muted-foreground">下游</span>
+                  <span>{h.industry_chain.downstream.join(" / ")}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Opportunities & Risks — side-by-side cards */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-md border border-emerald-200 bg-emerald-50/50 p-4">
+            <div className="mb-3 text-sm font-medium text-emerald-950">机会</div>
+            <div className="space-y-3">
+              {h.opportunities.length === 0 && <p className="text-sm text-emerald-800">暂无数据。</p>}
+              {h.opportunities.map((o) => (
+                <div key={o.title}>
+                  <div className="text-sm font-medium text-emerald-900">{o.title}</div>
+                  <p className="mt-0.5 text-sm leading-6 text-emerald-800">{o.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-md border border-amber-200 bg-amber-50/50 p-4">
+            <div className="mb-3 text-sm font-medium text-amber-950">风险</div>
+            <div className="space-y-3">
+              {h.risks.length === 0 && <p className="text-sm text-amber-800">暂无数据。</p>}
+              {h.risks.map((r) => (
+                <div key={r.title}>
+                  <div className="text-sm font-medium text-amber-900">{r.title}</div>
+                  <p className="mt-0.5 text-sm leading-6 text-amber-800">{r.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Related Fund Directions */}
+        {h.related_fund_directions.length > 0 && (
+          <div>
+            <div className="mb-2 text-sm font-medium">相关基金方向</div>
+            <div className="flex flex-wrap gap-1.5">
+              {h.related_fund_directions.map((d) => (
+                <Badge key={d}>{d}</Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tags — quick reference */}
+        <div className="flex flex-wrap gap-3 border-t pt-4 text-xs text-muted-foreground">
+          {h.themes.length > 0 && <span>主题：{h.themes.join(" · ")}</span>}
+          {h.industries.length > 0 && <span>行业：{h.industries.join(" · ")}</span>}
+          {h.keywords.length > 0 && <span>关键词：{h.keywords.join(" · ")}</span>}
+        </div>
+
+        {/* Evidence — DeepSeek cited + RSS original */}
+        {(h.evidence_headlines.length > 0 || (selectedHotspot?.evidence_headlines?.length ?? 0) > 0) && (
+          <div className="border-t pt-4">
+            <div className="mb-2 text-xs font-medium text-muted-foreground">来源依据</div>
+            <div className="space-y-1">
+              {h.evidence_headlines.slice(0, 5).map((title, i) => (
+                <p key={`ds-${i}`} className="text-xs leading-5 text-muted-foreground">{title}</p>
+              ))}
+              {selectedHotspot?.evidence_headlines
+                ?.filter((headline) => !h.evidence_headlines.some((ds) => ds.includes(headline.title.slice(0, 10))))
+                .slice(0, 3)
+                .map((headline) => (
+                  <p key={`${headline.source}-${headline.title}`} className="text-xs leading-5 text-muted-foreground">
+                    {headline.source}：{headline.title}
+                  </p>
+                ))}
+            </div>
+          </div>
+        )}
+
+        {/* Compliance Note */}
+        {h.compliance_note && (
+          <p className="border-t pt-4 text-xs leading-5 text-muted-foreground">{h.compliance_note}</p>
         )}
       </div>
     </section>

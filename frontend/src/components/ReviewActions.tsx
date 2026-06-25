@@ -100,7 +100,7 @@ ${result.hotspot_analysis.summary}
 - 主题: ${result.hotspot_analysis.themes.join(" / ")}
 - 行业: ${result.hotspot_analysis.industries.join(" / ")}
 - 关键词: ${result.hotspot_analysis.keywords.join(" / ")}
-- 风险: ${result.hotspot_analysis.risks.join(" / ")}
+- 风险: ${result.hotspot_analysis.risks.map((r) => r.title).join(" / ")}
 
 ## 候选基金
 

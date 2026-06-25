@@ -31,8 +31,10 @@ Implemented in this branch:
 - created FundDetailPage at `/fund/:fundCode` showing FundEvidencePanel, MarketingCopyPanel, and Suitability for a single fund;
 - removed FundEvidencePanel, MarketingCopyPanel, Suitability from results list page — results now only shows FundRankingTable + HotspotAnalysis + ReviewActions;
 - changed market data refresh interval from 30s to 5 minutes (backend + frontend);
-- enhanced hotspot analysis prompt: added market_background, industry_analysis, investment_logic paragraphs (80-120 words each) in addition to tags;
-- frontend hotspot section now shows rich paragraphs with tags as compact reference, plus "AI 生成 · 需人工复核" label.
+- redesigned hotspot analysis data model: structured JSON output from DeepSeek with core_drivers (title+description), industry_chain (upstream/midstream/downstream), opportunities/risks (title+description), related_fund_directions, evidence_headlines, compliance_note;
+- HotspotAgent now receives real news headlines from frontend via CampaignRequest.evidence_headlines;
+- frontend HotspotAnalysisSection redesigned as research-brief style: summary → numbered core drivers → industry chain → side-by-side opp/risk cards → fund directions → evidence → compliance note;
+- tags (themes/industries/keywords) relegated to a compact reference line at the bottom.
 
 ## Data Sources
 

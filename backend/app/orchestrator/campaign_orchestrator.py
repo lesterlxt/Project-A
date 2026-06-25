@@ -19,11 +19,16 @@ class CampaignOrchestrator:
         self.copywriter = CopywritingAgent()
         self.compliance_checker = ComplianceChecker()
 
-    def analyze_hotspot(self, hotspot: str) -> HotspotAnalysisResponse:
-        return self.hotspot_agent.analyze(hotspot)
+    def analyze_hotspot(
+        self, hotspot: str, evidence_headlines: list[str] | None = None
+    ) -> HotspotAnalysisResponse:
+        return self.hotspot_agent.analyze(hotspot, evidence_headlines)
 
     def run(self, request: CampaignRequest) -> CampaignResponse:
-        hotspot_analysis = self.hotspot_agent.analyze(request.hotspot)
+        hotspot_analysis = self.hotspot_agent.analyze(
+            request.hotspot,
+            request.evidence_headlines if request.evidence_headlines else None,
+        )
         funds = self.fund_loader.load()
         filtered_funds = self._filter_funds(funds, request.fund_type_filter)
         if not filtered_funds:
