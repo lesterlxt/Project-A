@@ -25,7 +25,7 @@ export function EFundSupermarketTable({ data, loading, error }: Props) {
               易方达官网基金超市
             </CardTitle>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              官方基金产品页样本，用于对照本地基金池覆盖范围。
+              官方产品页样本，对照本地基金池覆盖。
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -84,7 +84,7 @@ export function EFundSupermarketTable({ data, loading, error }: Props) {
           </div>
         )}
         <p className="mt-2 text-xs leading-5 text-muted-foreground">
-          来源：{data?.source || "易方达官网基金产品页"}；仅展示官方页面样本，不作为交易入口。
+          来源：{data?.source || "易方达官网基金产品页"}；非交易入口。
         </p>
       </CardContent>
     </Card>

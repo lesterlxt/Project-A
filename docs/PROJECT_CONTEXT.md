@@ -98,11 +98,15 @@ Left sidebar:
 
 Right side before analysis:
   PreAnalysisDashboard
-  Uses a single vertical main column.
+  Single vertical main column with reduced Card usage.
+  HotspotNewsPanel and FundPoolStructurePanel now use section
+  headings instead of Card wrappers for cleaner information
+  hierarchy.
   Shows current config, hotspot news, market/fund allocation reference,
   E Fund official supermarket sample, fund-pool structure, and analysis boundary.
 
 Right side after analysis:
+  Compact stats bar (replaced 5 separate KPI cards)
   ReviewActions
   candidate funds / excluded funds
   hotspot analysis
@@ -117,7 +121,7 @@ Right side after analysis:
 
 `/api/market/overview` returns the dashboard market reference table. Current quotes come from Eastmoney, A-share one-month performance uses Tencent daily kline, and overseas/history fallbacks use Yahoo Finance chart data. The frontend does not mock unavailable market values.
 
-`/api/efunds/supermarket` returns a small read-only sample from the E Fund official fund supermarket page. It is shown only as official product-page context in the pre-analysis dashboard; the UI intentionally does not show purchase/subscription buttons.
+`/api/efunds/supermarket` returns a small read-only sample from the E Fund official fund supermarket page. The backend service has try/catch timeout handling: HTTP failures return empty items, and the frontend shows "data not available" instead of crashing. It is shown only as official product-page context in the pre-analysis dashboard; the UI intentionally does not show purchase/subscription buttons.
 
 Fund-pool sync currently keeps the implementation detail of "enhanced count" in the backend logs only. The frontend explains the business-facing screening logic instead: read public fund codes, apply configured theme keywords, and keep the first 3,000 matching funds as the local SQLite candidate pool.
 

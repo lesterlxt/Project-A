@@ -57,7 +57,7 @@ export function ControlPanel({
             <Label>市场热点</Label>
             <Input value={hotspot} onChange={(event) => onHotspotChange(event.target.value)} />
             <p className="text-xs leading-5 text-muted-foreground">
-              可手动输入，也可在右侧热点新闻面板选择今日主题。
+              可手动输入，也可在热点新闻面板选择今日主题。
             </p>
           </div>
 

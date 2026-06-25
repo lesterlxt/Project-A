@@ -14,7 +14,13 @@ Implemented in this branch:
 - added a read-only E Fund official fund supermarket sample module;
 - hid the frontend "enhanced 99" implementation metric;
 - added a business-facing fund-pool screening explanation;
-- moved scoring formula metadata into backend `/api/options`.
+- moved scoring formula metadata into backend `/api/options`;
+- added backend try/catch + timeout wrapper for E Fund official page (returns empty items on failure, frontend shows empty state);
+- reduced Card usage in pre-analysis dashboard (HotspotNewsPanel and FundPoolStructurePanel now use section headings instead of Card wrappers);
+- replaced 5 KPI cards in results page with a compact stats bar;
+- simplified verbose explanatory text in table headers, footers, and market interpretation;
+- removed "右侧" directional reference from ControlPanel for responsive layout;
+- confirmed no "推荐基金" wording remains in display text (API field names unchanged for compatibility).
 
 ## Data Sources
 
@@ -113,8 +119,9 @@ curl http://127.0.0.1:8000/api/options
 
 Best next steps for the next agent:
 
-1. Visually verify the simplified pre-analysis page in browser at desktop and mobile widths.
-2. Decide whether the E Fund official supermarket sample should stay as a reference module or be joined with the local fund pool.
-3. Add a lightweight backend timeout/error wrapper for the E Fund official page so failures return a clean API error.
-4. Continue replacing "recommended" wording in result-state UI with "candidate/system shortlist" where still visible.
-5. Start Feishu chatbot integration only after the current React workflow and evidence fields are stable.
+1. Decide whether the E Fund official supermarket sample should stay as a reference module or be joined with the local fund pool.
+2. Add more complete fund holding-weight data and real stock-industry mapping for accurate industry exposure calculation.
+3. Start Feishu chatbot integration only after the current React workflow and evidence fields are stable.
+4. Improve mobile layout for data tables (currently use horizontal scroll with min-width).
+5. Continue strengthening data quality rules and eligibility filtering in the backend.
+6. Consider merging AnalysisConfigPreview into the page header area for even fewer visual containers.

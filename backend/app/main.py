@@ -85,7 +85,10 @@ def market_overview() -> MarketOverviewResponse:
 
 @app.get("/api/efunds/supermarket", response_model=EFundSupermarketResponse)
 def efund_supermarket() -> EFundSupermarketResponse:
-    return efund_supermarket_service.snapshot()
+    try:
+        return efund_supermarket_service.snapshot()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"易方达官网基金超市接口不可用：{exc}") from exc
 
 
 @app.get("/api/options", response_model=AppOptionsResponse)

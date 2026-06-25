@@ -186,24 +186,24 @@ class MarketDataService:
 
     def _interpret(self, metric: MarketMetric, change_percent: float | None, one_month: float | None) -> str:
         if change_percent is None:
-            return "实时行情暂不可用，暂不生成市场解读。"
+            return "实时行情暂不可用。"
 
         if metric.is_yield:
             if change_percent > 0:
-                return "利率上行，债券价格承压，固收产品沟通需强调久期和波动。"
+                return "利率上行，债券承压，关注久期和波动。"
             if change_percent < 0:
-                return "利率下行，债券资产阶段性受益，可关注固收和固收+配置价值。"
-            return "利率变化有限，债券配置可围绕稳健底仓和流动性需求展开。"
+                return "利率下行，债券受益，关注固收+配置价值。"
+            return "利率变化有限，围绕稳健底仓配置。"
 
         if change_percent > 1 and (one_month or 0) > 0:
-            return "市场短期走强且月度趋势偏正，可作为主题热度和配置窗口参考。"
+            return "短期走强且月度趋势偏正，可作为配置窗口参考。"
         if change_percent > 0:
-            return "市场当日上行，可关注相关基金的主题匹配和追高风险。"
+            return "当日上行，关注主题匹配和追高风险。"
         if change_percent < -1:
-            return "市场回调较明显，适合提示波动风险并观察分批配置机会。"
+            return "回调较明显，提示波动风险，观察分批配置机会。"
         if change_percent < 0:
-            return "市场小幅回落，沟通时应强调长期配置和风险承受能力。"
-        return "市场变化有限，可作为中性配置参考。"
+            return "小幅回落，强调长期配置和风险承受。"
+        return "变化有限，中性配置参考。"
 
     def _http_json(self, url: str, referer: str | None = None) -> dict[str, Any]:
         headers = {

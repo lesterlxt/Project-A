@@ -14,8 +14,11 @@ class EFundSupermarketService:
     source = "E Fund official fund supermarket"
 
     def snapshot(self, limit: int = 8) -> EFundSupermarketResponse:
-        html = self._http_text(EFUND_SUPERMARKET_URL)
-        rows = self._extract_rows(html)
+        try:
+            html = self._http_text(EFUND_SUPERMARKET_URL)
+            rows = self._extract_rows(html)
+        except Exception:
+            rows = []
         return EFundSupermarketResponse(
             updated_at=datetime.now(UTC).isoformat(timespec="seconds"),
             source=self.source,

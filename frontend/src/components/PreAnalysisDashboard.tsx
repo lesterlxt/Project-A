@@ -47,29 +47,24 @@ export function PreAnalysisDashboard({
   onHotspotSelect,
 }: Props) {
   return (
-    <div className="space-y-5">
-      <section className="space-y-5">
-        <section className="space-y-5">
-          <AnalysisConfigPreview
-            hotspot={hotspot}
-            channel={channel}
-            riskPreference={riskPreference}
-            fundTypeFilter={fundTypeFilter}
-            topK={topK}
-          />
-          <HotspotNewsPanel
-            hotspots={todayHotspots}
-            selectedName={hotspot}
-            loading={hotspotsLoading}
-            onSelect={onHotspotSelect}
-          />
-          <FundMarketOverviewTable data={marketOverview} loading={marketLoading} error={marketError} />
-          <EFundSupermarketTable data={efundSupermarket} loading={efundLoading} error={efundError} />
-          <FundPoolStructurePanel summary={fundSummary} />
-        </section>
-
-        <ComplianceReminder />
-      </section>
+    <div className="space-y-8">
+      <AnalysisConfigPreview
+        hotspot={hotspot}
+        channel={channel}
+        riskPreference={riskPreference}
+        fundTypeFilter={fundTypeFilter}
+        topK={topK}
+      />
+      <HotspotNewsPanel
+        hotspots={todayHotspots}
+        selectedName={hotspot}
+        loading={hotspotsLoading}
+        onSelect={onHotspotSelect}
+      />
+      <FundMarketOverviewTable data={marketOverview} loading={marketLoading} error={marketError} />
+      <EFundSupermarketTable data={efundSupermarket} loading={efundLoading} error={efundError} />
+      <FundPoolStructurePanel summary={fundSummary} />
+      <ComplianceReminder />
     </div>
   );
 }
@@ -126,65 +121,50 @@ function HotspotNewsPanel({
   onSelect: (value: string) => void;
 }) {
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-3">
-          <CardTitle className="flex items-center gap-2">
-            <Newspaper size={18} />
-            热点新闻
-          </CardTitle>
-          <span className="text-xs text-muted-foreground">Top 5</span>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <p className="text-xs leading-5 text-muted-foreground">
-          来源：Google News RSS 财经/产业标题；DeepSeek 仅做热点提炼和热度归纳。
-        </p>
-        {loading && <EmptyState text="正在加载今日热点。" />}
-        {!loading && hotspots.length === 0 && <EmptyState text="未获取到真实热点。" />}
-        {hotspots.length > 0 && (
-          <div className="divide-y">
-            {hotspots.map((item) => (
-              <button
-                key={item.name}
-                type="button"
-                onClick={() => onSelect(item.name)}
-                className={cn(
-                  "w-full px-1 py-3 text-left transition-colors hover:bg-secondary/50",
-                  selectedName === item.name && "bg-secondary/60",
-                )}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold">{item.name}</div>
-                    <p className="mt-1 line-clamp-2 text-sm leading-6 text-muted-foreground">{item.summary}</p>
-                    {(item.evidence_headlines?.length ?? 0) > 0 && (
-                      <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
-                        {item.evidence_headlines[0].source}：{item.evidence_headlines[0].title}
-                      </p>
-                    )}
-                  </div>
-                  <span className="shrink-0 text-xs font-medium text-muted-foreground">热度 {item.heat_score}</span>
+    <section>
+      <SectionHeading icon={Newspaper} title="热点新闻" badge="Top 5" />
+      <p className="mb-3 text-xs leading-5 text-muted-foreground">
+        来源：Google News RSS 财经/产业标题；DeepSeek 仅做热点提炼和热度归纳。
+      </p>
+      {loading && <EmptyState text="正在加载今日热点。" />}
+      {!loading && hotspots.length === 0 && <EmptyState text="未获取到真实热点。" />}
+      {hotspots.length > 0 && (
+        <div className="divide-y rounded-md border">
+          {hotspots.map((item) => (
+            <button
+              key={item.name}
+              type="button"
+              onClick={() => onSelect(item.name)}
+              className={cn(
+                "w-full px-4 py-3 text-left transition-colors hover:bg-accent/40",
+                selectedName === item.name && "bg-accent/60",
+              )}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold">{item.name}</div>
+                  <p className="mt-1 line-clamp-2 text-sm leading-6 text-muted-foreground">{item.summary}</p>
+                  {(item.evidence_headlines?.length ?? 0) > 0 && (
+                    <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+                      {item.evidence_headlines[0].source}：{item.evidence_headlines[0].title}
+                    </p>
+                  )}
                 </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                <span className="shrink-0 text-xs font-medium text-muted-foreground">热度 {item.heat_score}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
 function FundPoolStructurePanel({ summary }: { summary: FundPoolSummary | null }) {
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2">
-          <PieChart size={18} />
-          基金池结构
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="grid gap-8 lg:grid-cols-2">
+    <section>
+      <SectionHeading icon={PieChart} title="基金池结构" />
+      <div className="grid gap-8 lg:grid-cols-2 rounded-md border p-5">
         <DistributionList
           icon={PieChart}
           title="基金类型"
@@ -197,8 +177,8 @@ function FundPoolStructurePanel({ summary }: { summary: FundPoolSummary | null }
           items={summary?.risk_level_distribution ?? []}
           emptyText="暂无风险等级统计，请先同步真实基金池。"
         />
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }
 
@@ -246,6 +226,16 @@ function ComplianceReminder() {
         分析边界
       </div>
       候选基金不等于投资建议，AI 生成内容需要人工复核；市场行情和基金池统计均来自公开接口，接口不可用时不展示编造数据。
+    </div>
+  );
+}
+
+function SectionHeading({ icon: Icon, title, badge }: { icon: typeof Target; title: string; badge?: string }) {
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <Icon size={17} className="text-muted-foreground" />
+      <h2 className="text-base font-semibold">{title}</h2>
+      {badge && <span className="text-xs text-muted-foreground">{badge}</span>}
     </div>
   );
 }

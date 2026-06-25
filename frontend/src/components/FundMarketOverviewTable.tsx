@@ -26,7 +26,7 @@ export function FundMarketOverviewTable({ data, loading, error }: Props) {
               市场与基金配置参考
             </CardTitle>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              用于银行渠道沟通前的市场环境参考，不构成投资建议。
+              银行渠道沟通参考，不构成投资建议。
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -88,7 +88,7 @@ export function FundMarketOverviewTable({ data, loading, error }: Props) {
           </div>
         )}
         <p className="mt-2 text-xs leading-5 text-muted-foreground">
-          来源：{data?.source || "公开行情接口"}；行情每 30 秒自动刷新。接口不可用时不展示编造数据。
+          来源：{data?.source || "公开行情接口"}；每 30 秒自动刷新。
         </p>
       </CardContent>
     </Card>

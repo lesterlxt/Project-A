@@ -261,7 +261,7 @@ export function CampaignWorkbench() {
                 基金热点选品与渠道支持
               </h1>
               <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                基于公开行情、热点新闻和本地基金池，生成可复核的候选基金、渠道文案和合规检查结果。
+                基于公开行情、热点新闻和本地基金池，生成候选基金、渠道文案和合规检查结果。
               </p>
             </div>
             <div className="grid grid-cols-3 gap-6 text-right text-sm">
@@ -295,13 +295,13 @@ export function CampaignWorkbench() {
             <div className="space-y-5">
               <ReviewActions result={result} />
 
-              <section className="grid gap-4 lg:grid-cols-5">
-                <KpiCard title="热点" value={result.hotspot_analysis.hotspot} detail={selectedHotspot?.summary ?? result.hotspot_analysis.summary} />
-                <KpiCard title="候选基金" value={String(result.recommended_funds.length)} detail="通过 P0 初筛" />
-                <KpiCard title="已筛基金" value={String(result.screened_count)} detail={`${result.excluded_count} 只被拦截`} />
-                <KpiCard title="渠道" value={result.channel_strategy.channel} detail={riskPreference} />
-                <KpiCard title="合规" value={result.compliance.passed ? "通过" : "需复核"} detail="基础规则检查" />
-              </section>
+              <div className="flex flex-wrap items-center gap-x-8 gap-y-2 rounded-md border bg-card px-5 py-3 text-sm">
+                <StatItem label="热点" value={result.hotspot_analysis.hotspot} />
+                <StatItem label="候选基金" value={`${result.recommended_funds.length} 只（通过 P0 初筛）`} />
+                <StatItem label="已筛基金" value={`${result.screened_count} 只 / ${result.excluded_count} 只被拦截`} />
+                <StatItem label="渠道" value={`${result.channel_strategy.channel} · ${riskPreference}`} />
+                <StatItem label="合规" value={result.compliance.passed ? "基础规则通过" : "需复核"} />
+              </div>
 
               <section className="grid gap-5 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
                 <div className="space-y-5">
@@ -358,15 +358,12 @@ function HeaderMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function KpiCard({ title, value, detail }: { title: string; value: string; detail: string }) {
+function StatItem({ label, value }: { label: string; value: string }) {
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="text-xs text-muted-foreground">{title}</div>
-        <div className="mt-2 truncate text-xl font-semibold">{value}</div>
-        <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{detail}</p>
-      </CardContent>
-    </Card>
+    <div className="flex items-baseline gap-2">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="font-medium">{value}</span>
+    </div>
   );
 }
 
