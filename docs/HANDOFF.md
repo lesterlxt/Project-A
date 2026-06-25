@@ -27,9 +27,10 @@ Implemented in this branch:
 - changed results layout from 2-column asymmetrical grid to single-column vertical flow with space-y-8;
 - simplified FundRankingTable right-side info density (4 rows → 2 rows);
 - HotspotAnalysisCard extracted from CampaignWorkbench inline to standalone section;
-- added react-router-dom with URL-based state tracking: `/?tab=result&fund=CODE` for results view, plain `/` for pre-analysis;
-- removed stats bar and hidden ExcludedFundsPanel / CompliancePanel from frontend (components and backend APIs preserved for later use);
-- moved ReviewActions (审核状态) to the bottom of the results page.
+- added react-router-dom with URL-based state tracking: `/` for pre-analysis, `/?tab=result&fund=CODE` for results list, `/fund/:fundCode` for single-fund detail;
+- created FundDetailPage at `/fund/:fundCode` showing FundEvidencePanel, MarketingCopyPanel, and Suitability for a single fund;
+- removed FundEvidencePanel, MarketingCopyPanel, Suitability from results list page — results now only shows FundRankingTable + HotspotAnalysis + ReviewActions;
+- changed market data refresh interval from 30s to 5 minutes (backend + frontend).
 
 ## Data Sources
 
@@ -88,6 +89,8 @@ Frontend:
 
 ```text
 frontend/src/pages/CampaignWorkbench.tsx
+frontend/src/pages/FundDetailPage.tsx
+frontend/src/context/CampaignContext.tsx
 frontend/src/components/PreAnalysisDashboard.tsx
 frontend/src/components/FundMarketOverviewTable.tsx
 frontend/src/components/EFundSupermarketTable.tsx

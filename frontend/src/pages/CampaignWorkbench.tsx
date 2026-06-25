@@ -1,6 +1,6 @@
-import { LineChart, ShieldCheck } from "lucide-react";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { LineChart } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   AppOptions,
   CampaignResponse,
@@ -21,16 +21,16 @@ import {
 } from "../api/campaignApi";
 import { AgentPipelineStatus } from "../components/AgentPipelineStatus";
 import { ControlPanel } from "../components/ControlPanel";
-import { FundEvidencePanel } from "../components/FundEvidencePanel";
 import { FundPoolStatusCard } from "../components/FundPoolStatusCard";
 import { FundRankingTable } from "../components/FundRankingTable";
-import { MarketingCopyPanel } from "../components/MarketingCopyPanel";
 import { PreAnalysisDashboard } from "../components/PreAnalysisDashboard";
 import { ReviewActions } from "../components/ReviewActions";
 import { Badge } from "../components/ui/badge";
+import { CampaignContext } from "../context/CampaignContext";
 
 export function CampaignWorkbench() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const view = searchParams.get("tab") === "result" ? "result" : "pre";
   const urlFundCode = searchParams.get("fund") ?? "";
 
@@ -58,39 +58,31 @@ export function CampaignWorkbench() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
 
-  // Sync URL → selected fund
+  // Sync URL fund param → state (for browser back/forward)
   useEffect(() => {
     if (view === "result" && urlFundCode && result) {
       const exists = result.recommended_funds.some((f) => f.fund_code === urlFundCode);
-      if (exists && selectedFundCode !== urlFundCode) {
-        setSelectedFundCode(urlFundCode);
-      }
+      if (exists) setSelectedFundCode(urlFundCode);
     }
   }, [urlFundCode, result, view]);
 
   // When result appears, set URL to result view
   useEffect(() => {
     if (result && view === "pre") {
+      const first = result.recommended_funds[0]?.fund_code ?? "";
+      setSelectedFundCode(first);
       const params = new URLSearchParams();
       params.set("tab", "result");
-      if (selectedFundCode) params.set("fund", selectedFundCode);
+      if (first) params.set("fund", first);
       setSearchParams(params, { replace: true });
     }
   }, [result]);
 
-  // When fund selection changes, update URL
-  const handleFundSelect = useCallback(
-    (fundCode: string) => {
-      setSelectedFundCode(fundCode);
-      if (view === "result") {
-        const params = new URLSearchParams();
-        params.set("tab", "result");
-        params.set("fund", fundCode);
-        setSearchParams(params, { replace: true });
-      }
-    },
-    [view, setSearchParams],
-  );
+  // Navigate to fund detail page
+  function handleFundSelect(fundCode: string) {
+    setSelectedFundCode(fundCode);
+    navigate(`/fund/${fundCode}`);
+  }
 
   useEffect(() => {
     let active = true;
@@ -165,7 +157,7 @@ export function CampaignWorkbench() {
     }
 
     loadMarketOverview();
-    const timer = window.setInterval(loadMarketOverview, 30_000);
+    const timer = window.setInterval(loadMarketOverview, 300_000);
     return () => {
       active = false;
       window.clearInterval(timer);
@@ -248,7 +240,6 @@ export function CampaignWorkbench() {
     }
   }
 
-  // Navigate back to pre-analysis
   function handleBackToPre() {
     setSearchParams({}, { replace: true });
     setResult(null);
@@ -260,7 +251,6 @@ export function CampaignWorkbench() {
     ? new Date(hotspotsUpdatedAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })
     : "--:--";
 
-  // Determine which view to show based on URL
   const showResult = view === "result" && result !== null;
 
   return (
@@ -317,7 +307,7 @@ export function CampaignWorkbench() {
               </h1>
               <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
                 {showResult
-                  ? `${result.hotspot_analysis.hotspot} · ${result.channel_strategy.channel} · ${riskPreference}`
+                  ? `${result.hotspot_analysis.hotspot} · ${result.channel_strategy.channel} · ${riskPreference} · 候选 ${result.recommended_funds.length} 只`
                   : "基于公开行情、热点新闻和本地基金池，生成候选基金、渠道文案和合规检查结果。"}
               </p>
             </div>
@@ -349,50 +339,26 @@ export function CampaignWorkbench() {
           )}
 
           {showResult && (
-            <div className="space-y-8">
-              <FundRankingTable
-                funds={result.recommended_funds}
-                selectedFundCode={selectedFund?.fund_code ?? ""}
-                onSelect={handleFundSelect}
-              />
+            <CampaignContext.Provider
+              value={{
+                result,
+                options,
+                selectedHotspot,
+                riskPreference,
+              }}
+            >
+              <div className="space-y-8">
+                <FundRankingTable
+                  funds={result.recommended_funds}
+                  selectedFundCode={selectedFund?.fund_code ?? ""}
+                  onSelect={handleFundSelect}
+                />
 
-              {selectedFund && (
-                <FundEvidencePanel fund={selectedFund} scoringModel={options?.scoring_model ?? []} />
-              )}
+                <HotspotAnalysisSection response={result} selectedHotspot={selectedHotspot} />
 
-              <HotspotAnalysisSection response={result} selectedHotspot={selectedHotspot} />
-
-              <MarketingCopyPanel copy={result.marketing_copy} strategy={result.channel_strategy} />
-
-              {selectedFund && (
-                <section>
-                  <div className="mb-3 flex items-center gap-2">
-                    <ShieldCheck size={17} className="text-muted-foreground" />
-                    <h2 className="text-base font-semibold">适当性边界</h2>
-                  </div>
-                  <div className="grid gap-3 rounded-md border p-4 md:grid-cols-2">
-                    <div>
-                      <div className="mb-1 text-sm font-medium">适合客户</div>
-                      <p className="text-sm leading-6 text-muted-foreground">{selectedFund.suitable_clients}</p>
-                    </div>
-                    <div>
-                      <div className="mb-1 text-sm font-medium">不适合客户</div>
-                      <p className="text-sm leading-6 text-muted-foreground">{selectedFund.unsuitable_clients}</p>
-                    </div>
-                    <div>
-                      <div className="mb-1 text-sm font-medium">风险提示</div>
-                      <p className="text-sm leading-6 text-muted-foreground">{selectedFund.risk_warning}</p>
-                    </div>
-                    <div>
-                      <div className="mb-1 text-sm font-medium">渠道表达重点</div>
-                      <p className="text-sm leading-6 text-muted-foreground">{result.channel_strategy.messaging_focus.join(" / ")}</p>
-                    </div>
-                  </div>
-                </section>
-              )}
-
-              <ReviewActions result={result} />
-            </div>
+                <ReviewActions result={result} />
+              </div>
+            </CampaignContext.Provider>
           )}
         </section>
       </div>

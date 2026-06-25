@@ -115,12 +115,14 @@ Right side after analysis — single-column vertical flow with `space-y-8`:
 
 URL routing via react-router-dom:
   /                          → pre-analysis view
-  /?tab=result&fund=CODE     → results view with fund CODE selected
+  /?tab=result&fund=CODE     → results list with fund CODE highlighted
+  /fund/:fundCode            → single-fund detail page (evidence, copy, suitability)
 
-Removed from frontend (components + backend APIs preserved for later):
-  - Stats bar (热点/候选基金/已筛基金/渠道/合规)
-  - ExcludedFundsPanel (未进入候选池)
-  - CompliancePanel (合规检查)
+Results page now shows only: FundRankingTable + HotspotAnalysis + ReviewActions.
+Fund detail page shows: FundEvidencePanel + MarketingCopyPanel + Suitability.
+CampaignContext shares result/options across pages.
+
+Market data refresh changed from 30s to 5 minutes.
 ```
 
 `/api/options` also returns scoring formula metadata. The pre-analysis dashboard and `ScoreBreakdown` render this backend-driven model instead of duplicating formula text in frontend components.

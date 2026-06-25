@@ -8,7 +8,7 @@ from typing import Any
 from app.schemas import MarketOverviewItem, MarketOverviewResponse
 
 
-REFRESH_INTERVAL_SECONDS = 30
+REFRESH_INTERVAL_SECONDS = 300
 
 
 @dataclass(frozen=True)
