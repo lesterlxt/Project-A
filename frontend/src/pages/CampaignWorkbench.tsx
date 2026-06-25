@@ -26,7 +26,7 @@ import { FundRankingTable } from "../components/FundRankingTable";
 import { PreAnalysisDashboard } from "../components/PreAnalysisDashboard";
 import { ReviewActions } from "../components/ReviewActions";
 import { Badge } from "../components/ui/badge";
-import { CampaignContext } from "../context/CampaignContext";
+import { CampaignContext, clearStorage, saveToStorage } from "../context/CampaignContext";
 
 export function CampaignWorkbench() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -244,12 +244,20 @@ export function CampaignWorkbench() {
     setSearchParams({}, { replace: true });
     setResult(null);
     setSelectedFundCode("");
+    clearStorage();
   }
 
   const selectedHotspot = todayHotspots.find((item) => item.name === hotspot);
   const updatedTime = hotspotsUpdatedAt
     ? new Date(hotspotsUpdatedAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })
     : "--:--";
+
+  // Persist campaign data to sessionStorage so FundDetailPage survives refresh
+  useEffect(() => {
+    if (result) {
+      saveToStorage({ result, options, selectedHotspot, riskPreference });
+    }
+  }, [result, options, selectedHotspot, riskPreference]);
 
   const showResult = view === "result" && result !== null;
 
