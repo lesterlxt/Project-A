@@ -1,8 +1,11 @@
+import logging
 import sqlite3
+from datetime import UTC, datetime
 from pathlib import Path
 
 
 DB_PATH = Path(__file__).resolve().parents[1] / "data" / "funds.db"
+LOGGER = logging.getLogger(__name__)
 
 
 class StockIndustryMapper:
@@ -43,6 +46,71 @@ class StockIndustryMapper:
             connection.execute(
                 "DELETE FROM stock_industry_map WHERE source = 'manual_seed'"
             )
+
+    def count(self) -> int:
+        """Return the number of real industry mappings currently stored."""
+        if not DB_PATH.exists():
+            return 0
+        try:
+            with sqlite3.connect(DB_PATH) as connection:
+                row = connection.execute(
+                    "SELECT COUNT(*) FROM stock_industry_map WHERE COALESCE(source, '') != 'manual_seed'"
+                ).fetchone()
+            return int(row[0]) if row else 0
+        except sqlite3.OperationalError:
+            return 0
+
+    def import_stocks(self, rows: list[dict[str, str]]) -> int:
+        """
+        Bulk-insert or replace real stock industry mappings.
+
+        Each row should contain: stock_code, stock_name, industry, source, updated_at.
+        Returns the number of rows written.
+        """
+        if not rows or not DB_PATH.exists():
+            return 0
+
+        self.ensure_table()
+        now = datetime.now(UTC).isoformat(timespec="seconds")
+
+        with sqlite3.connect(DB_PATH) as connection:
+            count = 0
+            for row in rows:
+                code = self._normalize_code(row.get("stock_code", ""))
+                if not code:
+                    continue
+                name = str(row.get("stock_name", "")).strip() or code
+                industry = str(row.get("industry", "")).strip()
+                if not industry or industry == "--":
+                    continue
+                source = str(row.get("source", "eastmoney_f10"))
+                updated_at = row.get("updated_at", now)
+                connection.execute(
+                    """
+                    INSERT OR REPLACE INTO stock_industry_map
+                        (stock_code, stock_name, industry, source, updated_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (code, name, industry, source, updated_at),
+                )
+                count += 1
+            return count
+
+    def known_codes(self) -> set[str]:
+        """Return the set of stock codes that already have real industry mappings."""
+        if not DB_PATH.exists():
+            return set()
+        try:
+            with sqlite3.connect(DB_PATH) as connection:
+                rows = connection.execute(
+                    """
+                    SELECT stock_code FROM stock_industry_map
+                    WHERE COALESCE(source, '') != 'manual_seed'
+                    """
+                ).fetchall()
+            return {str(row[0]) for row in rows}
+        except sqlite3.OperationalError:
+            return set()
 
     def aggregate_by_holding_count(self, stock_codes: list[str]) -> tuple[dict[str, float], str]:
         normalized_codes = [self._normalize_code(code) for code in stock_codes]

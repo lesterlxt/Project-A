@@ -13,7 +13,10 @@ class ComplianceChecker:
 
     def check(self, marketing_copy: MarketingCopy) -> ComplianceResult:
         rules = json.loads(self.data_path.read_text(encoding="utf-8"))
-        full_text = " ".join(marketing_copy.model_dump().values())
+        full_text = " ".join(
+            str(value) for value in marketing_copy.model_dump().values()
+            if isinstance(value, str)
+        )
         issues: list[ComplianceIssue] = []
 
         for term in rules["banned_terms"]:

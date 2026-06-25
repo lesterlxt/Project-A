@@ -244,6 +244,11 @@ class ChannelStrategy(BaseModel):
     strategy_summary: str
 
 
+class ObjectionHandling(BaseModel):
+    objection: str
+    response: str
+
+
 class MarketingCopy(BaseModel):
     headline: str
     one_liner: str
@@ -251,6 +256,9 @@ class MarketingCopy(BaseModel):
     social_post: str
     long_form: str
     risk_disclosure: str
+    selling_points: list[str] = Field(default_factory=list)
+    investor_education: list[str] = Field(default_factory=list)
+    objection_handling: list[ObjectionHandling] = Field(default_factory=list)
 
 
 class ComplianceIssue(BaseModel):
@@ -275,3 +283,13 @@ class CampaignResponse(BaseModel):
     excluded_count: int = 0
     marketing_copy: MarketingCopy
     compliance: ComplianceResult
+
+
+class StockIndustryImportResponse(BaseModel):
+    total_codes: int
+    imported: int
+    failed: int
+    skipped: int
+    elapsed_seconds: float
+    mapping_count: int
+    message: str

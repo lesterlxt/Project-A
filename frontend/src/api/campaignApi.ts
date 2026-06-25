@@ -224,6 +224,11 @@ export type ChannelStrategy = {
   strategy_summary: string;
 };
 
+export type ObjectionHandling = {
+  objection: string;
+  response: string;
+};
+
 export type MarketingCopy = {
   headline: string;
   one_liner: string;
@@ -231,6 +236,9 @@ export type MarketingCopy = {
   social_post: string;
   long_form: string;
   risk_disclosure: string;
+  selling_points: string[];
+  investor_education: string[];
+  objection_handling: ObjectionHandling[];
 };
 
 export type ComplianceIssue = {

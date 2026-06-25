@@ -1,10 +1,30 @@
 # Project A Handoff
 
-## Current Checkpoint
+## Current Checkpoint (2026-06-25)
 
-This checkpoint focuses on making the pre-analysis workbench cleaner and more defensible for a fund-company / bank-channel sales support demo.
+Two major features landed:
 
-Implemented in this branch:
+### 1. Real Stock-Industry Mapping (P1 data gap closed)
+
+Replaced keyword-inferred industry allocation with real Shenwan (申万) industry classifications from Eastmoney F10 API.
+
+- **New service**: `backend/app/services/stock_industry_importer.py` — batch-fetches industry data from `emweb.securities.eastmoney.com`
+- **New endpoint**: `POST /api/industry/refresh` — manual refresh of industry mapping table
+- **Integration**: Fund sync Phase 3 automatically refreshes industry mappings after enrichment
+- **Result**: 342 real stock→industry mappings in `stock_industry_map` table, 82/85 enriched funds now use `source="mapped_from_stock_industry_map"` instead of `"keyword_inferred"`
+- **Frontend**: `SourceBadge` now shows green "mapped" badge with "持仓代码行业映射" instead of yellow "inferred" with "规则推导"
+
+### 2. Fund Detail Page — Business-First Redesign
+
+Shifted from a technical "system output verification" page to a channel-marketing enablement tool.
+
+- **New component**: `ChannelFitPanel.tsx` — three-dimension matching analysis (risk fit, client profile fit, product feature fit) derived from existing data
+- **Rewritten**: `MarketingCopyPanel.tsx` (44→200+ lines) — 9 sections: selling points, RM script (with copy button), social post, long form, investor education, objection handling, channel strategy, risk disclosure
+- **Rewritten**: `FundDetailPage.tsx` — business content first (marketing → channel fit → suitability), technical evidence collapsed by default
+- **Backend**: Enhanced `CopywritingAgent` LLM prompt generates 3 new structured fields: `selling_points`, `investor_education`, `objection_handling`
+- **New schema fields**: `MarketingCopy` now includes `selling_points: list[str]`, `investor_education: list[str]`, `objection_handling: list[ObjectionHandling]`
+
+### Previous checkpoint (pre-analysis workbench cleanup)
 
 - simplified the pre-analysis dashboard into a single vertical flow;
 - moved hotspot/news content into the main workbench column;
@@ -15,26 +35,16 @@ Implemented in this branch:
 - hid the frontend "enhanced 99" implementation metric;
 - added a business-facing fund-pool screening explanation;
 - moved scoring formula metadata into backend `/api/options`;
-- added backend try/catch + timeout wrapper for E Fund official page (returns empty items on failure, frontend shows empty state);
-- reduced Card usage in pre-analysis dashboard (HotspotNewsPanel and FundPoolStructurePanel now use section headings instead of Card wrappers);
+- added backend try/catch + timeout wrapper for E Fund official page;
+- reduced Card usage in pre-analysis dashboard;
 - replaced 5 KPI cards in results page with a compact stats bar;
-- simplified verbose explanatory text in table headers, footers, and market interpretation;
-- removed "右侧" directional reference from ControlPanel for responsive layout;
-- confirmed no "推荐基金" wording remains in display text (API field names unchanged for compatibility);
-- restructured post-analysis results page: removed Card wrappers from ReviewActions, ExcludedFundsPanel, MarketingCopyPanel, CompliancePanel, HotspotAnalysisCard, FundEvidencePanel, and Suitability sections;
-- merged ScoreBreakdown into FundEvidencePanel (deleted standalone ScoreBreakdown.tsx);
-- FundEvidencePanel rewritten from 181-line nested Card+border-boxes to clean section with compact key-value rows;
-- changed results layout from 2-column asymmetrical grid to single-column vertical flow with space-y-8;
-- simplified FundRankingTable right-side info density (4 rows → 2 rows);
-- HotspotAnalysisCard extracted from CampaignWorkbench inline to standalone section;
-- added react-router-dom with URL-based state tracking: `/` for pre-analysis, `/?tab=result&fund=CODE` for results list, `/fund/:fundCode` for single-fund detail;
-- created FundDetailPage at `/fund/:fundCode` showing FundEvidencePanel, MarketingCopyPanel, and Suitability for a single fund;
-- removed FundEvidencePanel, MarketingCopyPanel, Suitability from results list page — results now only shows FundRankingTable + HotspotAnalysis + ReviewActions;
-- changed market data refresh interval from 30s to 5 minutes (backend + frontend);
-- redesigned hotspot analysis data model: structured JSON output from DeepSeek with core_drivers (title+description), industry_chain (upstream/midstream/downstream), opportunities/risks (title+description), related_fund_directions, evidence_headlines, compliance_note;
-- HotspotAgent now receives real news headlines from frontend via CampaignRequest.evidence_headlines;
-- frontend HotspotAnalysisSection redesigned as research-brief style: summary → numbered core drivers → industry chain → side-by-side opp/risk cards → fund directions → evidence → compliance note;
-- tags (themes/industries/keywords) relegated to a compact reference line at the bottom.
+- simplified verbose explanatory text across the UI;
+- confirmed no "推荐基金" wording remains in display text;
+- restructured post-analysis results page with single-column layout;
+- merged ScoreBreakdown into FundEvidencePanel;
+- added react-router-dom URL routing;
+- redesigned hotspot analysis data model as structured research brief;
+- added Eastmoney news scraper as Google News RSS fallback.
 
 ## Data Sources
 
@@ -81,33 +91,43 @@ The backend parses the page's embedded `__FUND_SUPER_MARKET_DATA__` payload and 
 Backend:
 
 ```text
-backend/app/main.py
-backend/app/schemas.py
-backend/app/services/market_data_service.py
+backend/app/main.py                          # 14 API endpoints
+backend/app/schemas.py                       # All Pydantic models
+backend/app/agents/copywriting_agent.py      # Enhanced LLM prompt for channel-specific marketing
+backend/app/agents/eligibility_agent.py      # Data quality + suitability gates
+backend/app/agents/fund_category_agent.py    # Fund type classification
+backend/app/agents/hotspot_agent.py          # Structured research brief generation
+backend/app/orchestrator/campaign_orchestrator.py  # Linear pipeline
+backend/app/services/fund_data_provider.py   # Eastmoney sync + industry mapping trigger
+backend/app/services/stock_industry_importer.py    # NEW: Shenwan industry import from F10 API
+backend/app/services/stock_industry_mapper.py      # UPDATED: bulk import + known_codes + count
+backend/app/services/fund_loader.py          # SQLite fund pool reader
+backend/app/services/fund_scorer.py          # Multi-dimensional scoring with category ranking
+backend/app/services/market_data_service.py  # Live market quotes
 backend/app/services/efund_supermarket_service.py
-backend/app/services/fund_data_provider.py
-backend/app/services/rule_config.py
+backend/app/services/hotspot_provider.py     # Google News RSS + Eastmoney fallback
+backend/app/services/compliance.py           # Banned terms scanning
+backend/app/services/rule_config.py          # Centralized configuration
 ```
 
 Frontend:
 
 ```text
-frontend/src/pages/CampaignWorkbench.tsx
-frontend/src/pages/FundDetailPage.tsx
-frontend/src/context/CampaignContext.tsx
-frontend/src/components/PreAnalysisDashboard.tsx
+frontend/src/pages/CampaignWorkbench.tsx     # Main workbench
+frontend/src/pages/FundDetailPage.tsx        # REWRITTEN: business-first channel promotion page
+frontend/src/context/CampaignContext.tsx     # Context + sessionStorage persistence
+frontend/src/components/MarketingCopyPanel.tsx     # REWRITTEN: 9-section rich marketing content
+frontend/src/components/ChannelFitPanel.tsx        # NEW: 3-dimension channel fit analysis
+frontend/src/components/FundEvidencePanel.tsx      # Technical evidence (collapsed in detail page)
+frontend/src/components/FundRankingTable.tsx       # Candidate fund list
+frontend/src/components/ExcludedFundsPanel.tsx     # Excluded fund samples
+frontend/src/components/PreAnalysisDashboard.tsx   # Pre-analysis view
 frontend/src/components/FundMarketOverviewTable.tsx
 frontend/src/components/EFundSupermarketTable.tsx
 frontend/src/components/FundPoolStatusCard.tsx
-frontend/src/components/FundEvidencePanel.tsx
-frontend/src/components/FundRankingTable.tsx
-frontend/src/components/ExcludedFundsPanel.tsx
-frontend/src/components/MarketingCopyPanel.tsx
 frontend/src/components/CompliancePanel.tsx
 frontend/src/components/ReviewActions.tsx
-frontend/src/components/AgentPipelineStatus.tsx
-frontend/src/api/campaignApi.ts
-frontend/src/styles.css
+frontend/src/api/campaignApi.ts                    # UPDATED: new MarketingCopy types
 ```
 
 Docs:
@@ -135,15 +155,16 @@ Optional live checks require backend/frontend dev servers and network access:
 curl http://127.0.0.1:8000/api/market/overview
 curl http://127.0.0.1:8000/api/efunds/supermarket
 curl http://127.0.0.1:8000/api/options
+curl -X POST http://127.0.0.1:8000/api/industry/refresh         # refresh industry mappings
 ```
 
 ## Next Work
 
-Best next steps for the next agent:
+Best next steps:
 
-1. Decide whether the E Fund official supermarket sample should stay as a reference module or be joined with the local fund pool.
-2. Add more complete fund holding-weight data and real stock-industry mapping for accurate industry exposure calculation.
-3. Start Feishu chatbot integration only after the current React workflow and evidence fields are stable.
-4. Improve mobile layout for data tables (currently use horizontal scroll with min-width).
-5. Continue strengthening data quality rules and eligibility filtering in the backend.
-6. Consider merging AnalysisConfigPreview into the page header area for even fewer visual containers.
+1. Import fund holding-weight data (`fund_holdings` table) for accurate industry exposure calculation (table schema ready, data import still needed).
+2. Add more fund data fields (fund size, fee rate, Sharpe/Calmar ratio, manager tenure).
+3. Start Feishu chatbot integration — the React workflow and evidence fields are now stable.
+4. Same-category score normalization for more defensible within-group rankings.
+5. Multi-agent orchestration (event logs, agent contracts) → LangGraph state machine.
+6. Human review workflow with persistent audit trail.

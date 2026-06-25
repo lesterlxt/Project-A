@@ -14,6 +14,7 @@ from typing import Any
 
 from app.schemas import FundSyncResponse
 from app.services.rule_config import load_rule_config
+from app.services.stock_industry_importer import StockIndustryImporter
 from app.services.stock_industry_mapper import StockIndustryMapper
 
 
@@ -43,6 +44,7 @@ class EastmoneyFundDataProvider:
 
     def __init__(self) -> None:
         self.stock_industry_mapper = StockIndustryMapper()
+        self.stock_industry_importer = StockIndustryImporter()
 
     def sync(self, *, limit: int, enrich_limit: int, keywords: list[str]) -> FundSyncResponse:
         """
@@ -74,6 +76,14 @@ class EastmoneyFundDataProvider:
             if enriched_rows:
                 self._merge_enriched(enriched_rows)
 
+        # ---- Phase 3: refresh real stock-industry mapping (fast, skips cached) ----
+        industry_imported = 0
+        try:
+            result = self.stock_industry_importer.refresh()
+            industry_imported = result.imported
+        except Exception:
+            LOGGER.warning("Stock industry import failed, continuing with keyword fallback", exc_info=True)
+
         return FundSyncResponse(
             source=self.source,
             saved_path=str(DB_PATH),
@@ -85,6 +95,7 @@ class EastmoneyFundDataProvider:
             message=(
                 f"SQLite 基金池已更新：{len(selected)} 只基础基金，"
                 f"{enriched_count} 只已增强（经理/收益/持仓/风险等级）。"
+                + (f" 已为 {industry_imported} 只持仓股票同步申万行业分类。" if industry_imported else "")
             ),
         )
 

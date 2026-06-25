@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.agents.fund_data_agent import FundDataAgent
 from app.orchestrator.campaign_orchestrator import CampaignOrchestrator
-from app.schemas import AppOptionsResponse, CampaignRequest, CampaignResponse, EFundSupermarketResponse, FundPoolStatusResponse, FundPoolSummaryResponse, FundSyncRequest, FundSyncResponse, HotspotAnalysisRequest, HotspotAnalysisResponse, MarketOverviewResponse, TodayHotspotsResponse
+from app.schemas import AppOptionsResponse, CampaignRequest, CampaignResponse, EFundSupermarketResponse, FundPoolStatusResponse, FundPoolSummaryResponse, FundSyncRequest, FundSyncResponse, HotspotAnalysisRequest, HotspotAnalysisResponse, MarketOverviewResponse, StockIndustryImportResponse, TodayHotspotsResponse
+from app.services.stock_industry_importer import StockIndustryImporter
 from app.services.efund_supermarket_service import EFundSupermarketService
 from app.services.fund_data_provider import FundDataProviderError
 from app.services.hotspot_provider import HotspotProviderError, NewsHotspotProvider
@@ -34,6 +35,7 @@ hotspot_provider = NewsHotspotProvider()
 fund_data_agent = FundDataAgent()
 market_data_service = MarketDataService()
 efund_supermarket_service = EFundSupermarketService()
+stock_industry_importer = StockIndustryImporter()
 
 
 @app.get("/api/health")
@@ -99,6 +101,26 @@ def app_options() -> AppOptionsResponse:
 @app.post("/api/analyze-hotspot", response_model=HotspotAnalysisResponse)
 def analyze_hotspot(request: HotspotAnalysisRequest) -> HotspotAnalysisResponse:
     return orchestrator.analyze_hotspot(request.hotspot)
+
+
+@app.post("/api/industry/refresh", response_model=StockIndustryImportResponse)
+def refresh_stock_industry(force: bool = False) -> StockIndustryImportResponse:
+    """Refresh real Shenwan industry classifications for all stock holdings in the fund pool."""
+    result = stock_industry_importer.refresh(force=force)
+    mapping_count = stock_industry_importer.mapper.count()
+    return StockIndustryImportResponse(
+        total_codes=result.total_codes,
+        imported=result.imported,
+        failed=result.failed,
+        skipped=result.skipped,
+        elapsed_seconds=result.elapsed_seconds,
+        mapping_count=mapping_count,
+        message=(
+            f"股票行业映射刷新完成：本次新增 {result.imported} 条，"
+            f"失败 {result.failed} 条，跳过 {result.skipped} 条（已存在），"
+            f"当前总计 {mapping_count} 条映射记录。"
+        ),
+    )
 
 
 @app.post("/api/run-campaign", response_model=CampaignResponse)

@@ -92,24 +92,24 @@ Workflow coordinator  -> ReviewOrchestrator
 
 ### P0 Gaps
 
-These gaps affect trust immediately:
+✅ All P0 gaps have been closed:
 
-- no strict data-completeness gate;
-- no suitability hard blocking;
-- direct "recommended fund" wording still appears in UI;
-- no `data_quality_score`;
-- no `exclusion_reasons`;
-- missing metrics are silently tolerated in ranking.
+- ✅ strict data-completeness gate — `EligibilityAgent` with configurable `data_quality_weights`
+- ✅ suitability hard blocking — `allowed_risk_levels_by_preference` per risk preference
+- ✅ "candidate fund / system shortlist" wording replaces "recommended fund" in UI
+- ✅ `data_quality_score` per fund returned to frontend
+- ✅ `exclusion_reasons` per fund returned to frontend
+- ✅ missing metrics trigger exclusion rather than silent tolerance
 
 ### P1 Gaps
 
-These gaps affect professional quality:
+✅ Most P1 gaps closed:
 
-- no fund-type bucketed scoring;
-- no real stock-industry mapping data;
-- no holding-weight-based industry exposure;
-- recommendation explanations do not cite every supporting field;
-- score formulas are not visible enough in the UI.
+- ✅ fund-type bucketed scoring — `FundCategoryAgent` with 7 categories and within-group ranking
+- ✅ real stock-industry mapping data — `StockIndustryImporter` fetches Shenwan classifications from Eastmoney F10 (342 real mappings in DB)
+- ⚠️ holding-weight-based industry exposure — table schema ready (`fund_holdings`), but weight data not yet imported; currently using holding-count aggregation
+- ✅ recommendation explanations cite supporting fields — `explanation_points` with field sources
+- ✅ score formulas visible in UI — `/api/options` returns scoring model metadata
 
 ### P2 Gaps
 
@@ -138,7 +138,7 @@ These are useful later, but they do not solve the current trust gap.
 
 ### Milestone 0: Current Checkpoint
 
-Already done or in progress:
+Already done:
 
 - React + FastAPI MVP;
 - pre-analysis dashboard for the initial workbench state;
@@ -152,69 +152,44 @@ Already done or in progress:
 - basic compliance panel;
 - review draft export;
 - config-driven rules;
-- optional stock industry mapping service;
-- `/api/options` for frontend defaults.
-- backend-driven scoring formula metadata for the workbench and score breakdown.
-- market/fund allocation reference table backed by public quote APIs with empty states when market data is unavailable.
-- E Fund official fund supermarket sample in the pre-analysis dashboard.
-- simplified pre-analysis UI with a single vertical content flow and fewer small cards.
-- fund-pool card hides backend enhanced-count implementation detail and explains the 3,000-fund screening logic.
+- `/api/options` for frontend defaults;
+- backend-driven scoring formula metadata;
+- market/fund allocation reference table with empty states;
+- E Fund official fund supermarket sample;
+- simplified pre-analysis UI with single vertical content flow;
+- fund-pool card with business-facing screening explanation;
+- react-router-dom URL routing (`/` / `/?tab=result&fund=CODE` / `/fund/:fundCode`);
+- hotspot analysis redesigned as structured research brief;
+- Eastmoney news scraper as Google News RSS fallback;
+- real Shenwan industry mapping from Eastmoney F10 (P1 data gap closed);
+- fund detail page redesigned as channel-marketing enablement tool;
+- enhanced copywriting agent with selling points, investor education, and objection handling.
 
-### Milestone 1: P0 Trust Layer
+### Milestone 1: P0 Trust Layer ✅ COMPLETE
 
 Goal: make candidate ranking defensible.
 
-Initial implementation:
+- ✅ `EligibilityAgent` with data quality weights and suitability gates
+- ✅ `data_quality_score` per fund
+- ✅ `exclusion_reasons` per fund
+- ✅ hard risk suitability blocking
+- ✅ UI language: "候选基金 / 系统初筛"
+- ✅ separate "eligible candidates" and "excluded / data insufficient" sections
 
-- `EligibilityAgent` or eligibility service;
-- `data_quality_score`;
-- `exclusion_reasons`;
-- hard risk suitability blocking;
-- UI language change from "推荐基金" to "候选基金 / 系统初筛";
-- separate "eligible candidates" and "excluded / data insufficient" sections.
-
-Remaining refinements:
-
-- paginate or query excluded funds instead of returning only a sample;
-- add more official product fields when data sources are available.
-- decide whether E Fund official supermarket data should be joined into the local fund pool or remain a read-only reference module.
-
-Frontend should show:
-
-```text
-Data Quality: 78/100
-Missing: fund_size, fee_rate, holding_weight
-Blocked reason: risk level R4 is above conservative preference
-Formula: performance_stability = base_score - volatility_penalty - drawdown_penalty - negative_return_penalty
-```
-
-### Milestone 2: P1 Professional Scoring
+### Milestone 2: P1 Professional Scoring ✅ MOSTLY COMPLETE
 
 Goal: make scores closer to financial product research.
 
-Initial implementation:
-
-- category buckets: money market, bond, mixed, equity, index, QDII, FOF;
-- same-category rank fields;
-- stock-industry mapping table shape without default seed data;
-- explanation points that reference fields and sources.
-- score formula metadata returned by `/api/options` and rendered in the frontend.
+- ✅ category buckets: money market, bond, mixed, equity, index, QDII, FOF
+- ✅ same-category rank fields (`category_rank` / `category_total`)
+- ✅ real stock-industry mapping — `StockIndustryImporter` fetches Shenwan classifications from Eastmoney F10
+- ✅ explanation points referencing fields and sources
+- ✅ score formula metadata via `/api/options`
 
 Remaining refinements:
-
-- same-category score normalization;
-- full real stock-industry data import;
-- holding-weight-based industry exposure when holdings weights are available;
-- richer score input traces for every score component.
-
-Frontend should show:
-
-```text
-Compared within: Equity / technology-themed funds
-Theme score came from: matched AI, semiconductor, computing-power tags
-Risk score came from: volatility 26.1%, max drawdown -16.7%
-Industry exposure source: mapped from top holding stock codes
-```
+- ⚠️ same-category score normalization
+- ⚠️ holding-weight-based industry exposure (table schema ready, weight data not yet imported)
+- ⚠️ more official product fields (fund size, fee rate, Sharpe ratio, etc.)
 
 ### Milestone 3: P2 Agent Productization
 
@@ -293,12 +268,12 @@ POST /api/reviews/{run_id}/approve
 For a demo / defense, the project should prove:
 
 ```text
-1. It is tied to a real business workflow.
-2. It uses multiple agents with clear responsibilities.
-3. It does not blindly trust LLM output.
-4. It shows evidence and score formulas in the frontend.
-5. It has risk and compliance boundaries.
-6. It can extend from React workbench to Feishu chatbot.
+1. ✅ It is tied to a real business workflow. — Channel-specific marketing + channel fit analysis
+2. ✅ It uses multiple agents with clear responsibilities. — 6 agents with defined boundaries
+3. ✅ It does not blindly trust LLM output. — Data provenance badges on every field
+4. ✅ It shows evidence and score formulas in the frontend. — FundEvidencePanel + scoring model
+5. ✅ It has risk and compliance boundaries. — EligibilityAgent + ComplianceChecker
+6. ⬜ It can extend from React workbench to Feishu chatbot. — P2, not yet started
 ```
 
 For production-readiness, it would still need:
