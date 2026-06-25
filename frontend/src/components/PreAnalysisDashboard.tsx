@@ -124,10 +124,10 @@ function HotspotNewsPanel({
     <section>
       <SectionHeading icon={Newspaper} title="热点新闻" badge="Top 5" />
       <p className="mb-3 text-xs leading-5 text-muted-foreground">
-        来源：Google News RSS 财经/产业标题；DeepSeek 仅做热点提炼和热度归纳。
+        来源：Google News RSS / 东方财富财经新闻；DeepSeek 提炼热点。
       </p>
       {loading && <EmptyState text="正在加载今日热点。" />}
-      {!loading && hotspots.length === 0 && <EmptyState text="未获取到真实热点。" />}
+      {!loading && hotspots.length === 0 && <EmptyState text="所有新闻源暂不可用，请手动输入热点主题。" />}
       {hotspots.length > 0 && (
         <div className="divide-y rounded-md border">
           {hotspots.map((item) => (

@@ -34,47 +34,96 @@ class NewsHotspotProvider:
         if not self.llm.is_configured:
             raise HotspotProviderError("DEEPSEEK_API_KEY is required for real hotspot extraction")
 
-        headlines = self._fetch_headlines()
+        headlines: list[NewsHeadline] = []
+        source_label = ""
+        # Try Google News RSS first, then Eastmoney scrape as fallback
+        for fetcher, label in [
+            (self._fetch_headlines_google, "Google News RSS"),
+            (self._fetch_headlines_eastmoney, "东方财富财经新闻"),
+        ]:
+            try:
+                headlines = fetcher()
+                if headlines:
+                    source_label = label
+                    break
+            except Exception:
+                continue
         if not headlines:
-            raise HotspotProviderError("No news headlines were fetched from live sources")
+            raise HotspotProviderError("No news headlines were fetched from any live source")
 
         hotspots = self._extract_hotspots(headlines)
         return TodayHotspotsResponse(
             updated_at=datetime.now(UTC).isoformat(timespec="seconds"),
-            source="Google News RSS + DeepSeek",
+            source=f"{source_label} + DeepSeek",
             items=hotspots,
         )
 
-    def _fetch_headlines(self) -> list[NewsHeadline]:
+    def _fetch_headlines_google(self) -> list[NewsHeadline]:
         deduped: dict[str, NewsHeadline] = {}
         for query in self.queries:
-            url = self._rss_url(query)
+            try:
+                url = self._rss_url(query)
+                request = urllib.request.Request(
+                    url,
+                    headers={
+                        "User-Agent": "Mozilla/5.0 ProjectA/0.1",
+                        "Accept": "application/rss+xml, application/xml, text/xml",
+                    },
+                )
+                with urllib.request.urlopen(request, timeout=20) as response:
+                    xml_text = response.read().decode("utf-8", errors="replace")
+
+                root = ET.fromstring(xml_text)
+                for item in root.findall("./channel/item"):
+                    raw_title = (item.findtext("title") or "").strip()
+                    if not raw_title:
+                        continue
+                    source = item.findtext("source") or "Google News"
+                    pub_date = item.findtext("pubDate") or ""
+                    title = self._clean_title(raw_title)
+                    deduped[title] = NewsHeadline(
+                        title=title,
+                        source=source.strip(),
+                        published_at=self._parse_pub_date(pub_date),
+                    )
+                    if len(deduped) >= 60:
+                        break
+            except Exception:
+                continue
+        return list(deduped.values())[:60]
+
+    def _fetch_headlines_eastmoney(self) -> list[NewsHeadline]:
+        """Fallback: scrape Eastmoney finance homepage for headlines."""
+        deduped: dict[str, NewsHeadline] = {}
+        try:
             request = urllib.request.Request(
-                url,
+                "https://finance.eastmoney.com/",
                 headers={
                     "User-Agent": "Mozilla/5.0 ProjectA/0.1",
-                    "Accept": "application/rss+xml, application/xml, text/xml",
+                    "Accept": "text/html,application/xhtml+xml,*/*",
                 },
             )
-            with urllib.request.urlopen(request, timeout=20) as response:
-                xml_text = response.read().decode("utf-8", errors="replace")
+            with urllib.request.urlopen(request, timeout=12) as response:
+                html = response.read().decode("gbk", errors="replace")
 
-            root = ET.fromstring(xml_text)
-            for item in root.findall("./channel/item"):
-                raw_title = (item.findtext("title") or "").strip()
-                if not raw_title:
+            import re
+            titles = re.findall(r'<a[^>]*title=\"([^\"]{8,120})\"[^>]*>', html)
+            now = datetime.now(UTC).isoformat(timespec="seconds")
+            noise_words = {"广告", "举报", "违法", "接听", "市民", "警方", "征信", "亲爱的"}
+            for title in titles:
+                title = title.strip()
+                if not title or any(w in title for w in noise_words):
                     continue
-                source = item.findtext("source") or "Google News"
-                pub_date = item.findtext("pubDate") or ""
-                title = self._clean_title(raw_title)
                 deduped[title] = NewsHeadline(
                     title=title,
-                    source=source.strip(),
-                    published_at=self._parse_pub_date(pub_date),
+                    source="东方财富",
+                    published_at=now,
                 )
-                if len(deduped) >= 60:
+                if len(deduped) >= 50:
                     break
-        return list(deduped.values())[:60]
+        except Exception:
+            pass
+        return list(deduped.values())[:50]
 
     def _extract_hotspots(self, headlines: list[NewsHeadline]) -> list[HotspotItem]:
         payload = [headline.__dict__ for headline in headlines]

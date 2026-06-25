@@ -27,7 +27,12 @@ class HotspotAgent:
                 f"- {h}" for h in evidence_headlines[:15]
             )
         else:
-            headlines_block = "当前无真实新闻数据，请基于你对市场的了解进行分析，并标记 insufficient_data=true。如果信息不足，summary 应如实说明。"
+            headlines_block = (
+                "当前无真实新闻数据（可能由于网络原因无法抓取 Google News RSS），"
+                "请基于你对市场的了解进行分析。\n"
+                "如果对该热点了解充分，仍可输出完整分析，但 compliance_note 必须注明「基于模型知识，非实时新闻，仅供参考」。\n"
+                "如果确实不了解该热点，才设置 insufficient_data=true。"
+            )
 
         result = self.llm.chat_json(
             system_prompt=(
