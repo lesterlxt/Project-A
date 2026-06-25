@@ -8,6 +8,9 @@ class HotspotAnalysisRequest(BaseModel):
 class HotspotAnalysisResponse(BaseModel):
     hotspot: str
     summary: str
+    market_background: str = ""
+    industry_analysis: str = ""
+    investment_logic: str = ""
     themes: list[str]
     industries: list[str]
     keywords: list[str]

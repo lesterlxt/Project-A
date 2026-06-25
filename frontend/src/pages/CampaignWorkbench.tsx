@@ -394,28 +394,80 @@ function HotspotAnalysisSection({
   response: CampaignResponse;
   selectedHotspot?: TodayHotspot;
 }) {
+  const { hotspot_analysis: h } = response;
+
   return (
     <section>
       <div className="mb-3 flex items-center gap-2">
         <LineChart size={17} className="text-muted-foreground" />
         <h2 className="text-base font-semibold">热点主题分析</h2>
+        <span className="text-xs text-muted-foreground">AI 生成 · 需人工复核</span>
       </div>
-      <div className="space-y-4 rounded-md border p-5">
-        <p className="text-sm leading-6 text-muted-foreground">{response.hotspot_analysis.summary}</p>
+      <div className="space-y-5 rounded-md border p-5">
+        {/* Summary */}
+        <p className="text-sm leading-6">{h.summary}</p>
 
-        <TagBlock title="主题标签" items={response.hotspot_analysis.themes} />
-        <TagBlock title="相关行业" items={response.hotspot_analysis.industries} />
-        <TagBlock title="关键词" items={response.hotspot_analysis.keywords} />
+        {/* Rich paragraphs */}
+        {h.market_background && (
+          <div>
+            <div className="mb-1.5 text-sm font-medium">市场背景</div>
+            <p className="text-sm leading-6 text-muted-foreground">{h.market_background}</p>
+          </div>
+        )}
+        {h.industry_analysis && (
+          <div>
+            <div className="mb-1.5 text-sm font-medium">行业传导</div>
+            <p className="text-sm leading-6 text-muted-foreground">{h.industry_analysis}</p>
+          </div>
+        )}
+        {h.investment_logic && (
+          <div>
+            <div className="mb-1.5 text-sm font-medium">配置逻辑</div>
+            <p className="text-sm leading-6 text-muted-foreground">{h.investment_logic}</p>
+          </div>
+        )}
 
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
-          <div className="mb-1 text-sm font-medium text-amber-950">主要风险</div>
-          <p className="text-sm leading-6 text-amber-900">{response.hotspot_analysis.risks.join(" / ")}</p>
+        {/* Tags — compact reference */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-muted-foreground">主题</div>
+            <div className="flex flex-wrap gap-1">{h.themes.map((t) => <Badge key={t} variant="muted">{t}</Badge>)}</div>
+          </div>
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-muted-foreground">行业</div>
+            <div className="flex flex-wrap gap-1">{h.industries.map((t) => <Badge key={t} variant="muted">{t}</Badge>)}</div>
+          </div>
+          <div className="space-y-1 sm:col-span-2">
+            <div className="text-xs font-medium text-muted-foreground">关键词</div>
+            <div className="flex flex-wrap gap-1">{h.keywords.map((t) => <Badge key={t} variant="muted">{t}</Badge>)}</div>
+          </div>
         </div>
 
+        {/* Opportunities & Risks */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
+            <div className="mb-2 text-sm font-medium text-emerald-950">机会</div>
+            <ul className="space-y-1">
+              {h.opportunities.map((o) => (
+                <li key={o} className="text-sm leading-6 text-emerald-900">{o}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+            <div className="mb-2 text-sm font-medium text-amber-950">风险</div>
+            <ul className="space-y-1">
+              {h.risks.map((r) => (
+                <li key={r} className="text-sm leading-6 text-amber-900">{r}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* Evidence headlines */}
         {selectedHotspot && (selectedHotspot.evidence_headlines?.length ?? 0) > 0 && (
           <div>
-            <div className="mb-2 text-sm font-medium">来源新闻</div>
-            <div className="space-y-1.5">
+            <div className="mb-2 text-xs font-medium text-muted-foreground">来源新闻</div>
+            <div className="space-y-1">
               {selectedHotspot.evidence_headlines?.slice(0, 3).map((headline) => (
                 <p key={`${headline.title}-${headline.source}`} className="text-xs leading-5 text-muted-foreground">
                   {headline.source}：{headline.title}
@@ -426,19 +478,6 @@ function HotspotAnalysisSection({
         )}
       </div>
     </section>
-  );
-}
-
-function TagBlock({ title, items }: { title: string; items: string[] }) {
-  return (
-    <div className="space-y-1.5">
-      <div className="text-sm font-medium">{title}</div>
-      <div className="flex flex-wrap gap-1.5">
-        {items.map((item) => (
-          <Badge key={item} variant="muted">{item}</Badge>
-        ))}
-      </div>
-    </div>
   );
 }
 

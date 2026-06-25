@@ -30,7 +30,9 @@ Implemented in this branch:
 - added react-router-dom with URL-based state tracking: `/` for pre-analysis, `/?tab=result&fund=CODE` for results list, `/fund/:fundCode` for single-fund detail;
 - created FundDetailPage at `/fund/:fundCode` showing FundEvidencePanel, MarketingCopyPanel, and Suitability for a single fund;
 - removed FundEvidencePanel, MarketingCopyPanel, Suitability from results list page — results now only shows FundRankingTable + HotspotAnalysis + ReviewActions;
-- changed market data refresh interval from 30s to 5 minutes (backend + frontend).
+- changed market data refresh interval from 30s to 5 minutes (backend + frontend);
+- enhanced hotspot analysis prompt: added market_background, industry_analysis, investment_logic paragraphs (80-120 words each) in addition to tags;
+- frontend hotspot section now shows rich paragraphs with tags as compact reference, plus "AI 生成 · 需人工复核" label.
 
 ## Data Sources
 

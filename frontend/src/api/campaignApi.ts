@@ -9,6 +9,9 @@ export type CampaignRequest = {
 export type HotspotAnalysis = {
   hotspot: string;
   summary: string;
+  market_background: string;
+  industry_analysis: string;
+  investment_logic: string;
   themes: string[];
   industries: string[];
   keywords: string[];
