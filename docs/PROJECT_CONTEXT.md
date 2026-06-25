@@ -105,16 +105,18 @@ Right side before analysis:
   Shows current config, hotspot news, market/fund allocation reference,
   E Fund official supermarket sample, fund-pool structure, and analysis boundary.
 
-Right side after analysis:
-  Compact stats bar (replaced 5 separate KPI cards)
-  ReviewActions
-  candidate funds / excluded funds
-  hotspot analysis
-  score breakdown
-  evidence panel
-  marketing copy
-  compliance panel
-  suitability boundary
+Right side after analysis — single-column vertical flow with `space-y-8`:
+  Stats bar (compact border row)
+  FundRankingTable (Card preserved for interactive selection)
+  FundEvidencePanel (merged ScoreBreakdown + evidence, clean section)
+  HotspotAnalysisSection (section heading, no Card)
+  grid xl:grid-cols-2: MarketingCopyPanel | CompliancePanel (sections)
+  Suitability boundary (section heading)
+  ExcludedFundsPanel (section heading)
+
+All post-analysis sections use SectionHeading pattern instead of Card
+wrappers, matching the pre-analysis page style. ScoreBreakdown has been
+merged into FundEvidencePanel as a score-bars subsection.
 ```
 
 `/api/options` also returns scoring formula metadata. The pre-analysis dashboard and `ScoreBreakdown` render this backend-driven model instead of duplicating formula text in frontend components.

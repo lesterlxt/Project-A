@@ -20,7 +20,13 @@ Implemented in this branch:
 - replaced 5 KPI cards in results page with a compact stats bar;
 - simplified verbose explanatory text in table headers, footers, and market interpretation;
 - removed "右侧" directional reference from ControlPanel for responsive layout;
-- confirmed no "推荐基金" wording remains in display text (API field names unchanged for compatibility).
+- confirmed no "推荐基金" wording remains in display text (API field names unchanged for compatibility);
+- restructured post-analysis results page: removed Card wrappers from ReviewActions, ExcludedFundsPanel, MarketingCopyPanel, CompliancePanel, HotspotAnalysisCard, FundEvidencePanel, and Suitability sections;
+- merged ScoreBreakdown into FundEvidencePanel (deleted standalone ScoreBreakdown.tsx);
+- FundEvidencePanel rewritten from 181-line nested Card+border-boxes to clean section with compact key-value rows;
+- changed results layout from 2-column asymmetrical grid to single-column vertical flow with space-y-8;
+- simplified FundRankingTable right-side info density (4 rows → 2 rows);
+- HotspotAnalysisCard extracted from CampaignWorkbench inline to standalone section.
 
 ## Data Sources
 
@@ -83,7 +89,13 @@ frontend/src/components/PreAnalysisDashboard.tsx
 frontend/src/components/FundMarketOverviewTable.tsx
 frontend/src/components/EFundSupermarketTable.tsx
 frontend/src/components/FundPoolStatusCard.tsx
-frontend/src/components/ScoreBreakdown.tsx
+frontend/src/components/FundEvidencePanel.tsx
+frontend/src/components/FundRankingTable.tsx
+frontend/src/components/ExcludedFundsPanel.tsx
+frontend/src/components/MarketingCopyPanel.tsx
+frontend/src/components/CompliancePanel.tsx
+frontend/src/components/ReviewActions.tsx
+frontend/src/components/AgentPipelineStatus.tsx
 frontend/src/api/campaignApi.ts
 frontend/src/styles.css
 ```

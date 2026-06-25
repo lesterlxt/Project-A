@@ -148,6 +148,9 @@ P1 后续完善：
 11. 已为易方达基金超市接口添加超时和异常捕获，失败时返回空数据而非崩溃。
 12. 已减少前分析页和非分析页的 Card 数量，热点新闻和基金池结构使用 section 标题替代 Card 包裹，结果页 5 个 KPI 卡合并为紧凑统计条。
 13. 已验证前端无"推荐基金"等过强措辞，所有显示使用"候选基金 / 系统初筛 / 配置参考"。
+14. 已将分析后结果页全量重构：去除了 9 个 Card 包裹的 Dashboard Widget 风格，改为与分析前一致的 Section Heading 纵向流。
+15. FundEvidencePanel 从 181 行嵌套 border-box 重构为紧凑的 key-value 行；ScoreBreakdown 合并入 FundEvidencePanel。
+16. 结果页布局从 2 列不对称 grid 改为单列纵向流（space-y-8），信息层级清晰，视觉噪音大幅降低。
 
 P2 技术升级：
 

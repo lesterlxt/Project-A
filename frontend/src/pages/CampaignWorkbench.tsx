@@ -1,4 +1,4 @@
-import { FileText, LineChart, ShieldCheck } from "lucide-react";
+import { LineChart, ShieldCheck } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   AppOptions,
@@ -28,9 +28,7 @@ import { FundRankingTable } from "../components/FundRankingTable";
 import { MarketingCopyPanel } from "../components/MarketingCopyPanel";
 import { PreAnalysisDashboard } from "../components/PreAnalysisDashboard";
 import { ReviewActions } from "../components/ReviewActions";
-import { ScoreBreakdown } from "../components/ScoreBreakdown";
 import { Badge } from "../components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 
 export function CampaignWorkbench() {
   const [hotspot, setHotspot] = useState("AI算力");
@@ -292,7 +290,7 @@ export function CampaignWorkbench() {
           )}
 
           {result && (
-            <div className="space-y-5">
+            <div className="space-y-8">
               <ReviewActions result={result} />
 
               <div className="flex flex-wrap items-center gap-x-8 gap-y-2 rounded-md border bg-card px-5 py-3 text-sm">
@@ -303,49 +301,111 @@ export function CampaignWorkbench() {
                 <StatItem label="合规" value={result.compliance.passed ? "基础规则通过" : "需复核"} />
               </div>
 
-              <section className="grid gap-5 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
-                <div className="space-y-5">
-                  <FundRankingTable
-                    funds={result.recommended_funds}
-                    selectedFundCode={selectedFund?.fund_code ?? ""}
-                    onSelect={setSelectedFundCode}
-                  />
-                  <ExcludedFundsPanel funds={result.excluded_funds} />
-                  {selectedFund && <ScoreBreakdown fund={selectedFund} scoringModel={options?.scoring_model ?? []} />}
-                </div>
-
-                <div className="space-y-5">
-                  <HotspotAnalysisCard response={result} selectedHotspot={selectedHotspot} />
-                  {selectedFund && <FundEvidencePanel fund={selectedFund} />}
-                </div>
-              </section>
-
-              <section className="grid gap-5 xl:grid-cols-2">
-                <MarketingCopyPanel copy={result.marketing_copy} strategy={result.channel_strategy} />
-                <CompliancePanel compliance={result.compliance} />
-              </section>
+              <FundRankingTable
+                funds={result.recommended_funds}
+                selectedFundCode={selectedFund?.fund_code ?? ""}
+                onSelect={setSelectedFundCode}
+              />
 
               {selectedFund && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2">
-                      <ShieldCheck size={18} />
-                      适当性边界
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid gap-3 md:grid-cols-2">
-                    <BoundaryBlock title="适合客户" text={selectedFund.suitable_clients} />
-                    <BoundaryBlock title="不适合客户" text={selectedFund.unsuitable_clients} />
-                    <BoundaryBlock title="风险提示" text={selectedFund.risk_warning} />
-                    <BoundaryBlock title="渠道表达重点" text={result.channel_strategy.messaging_focus.join(" / ")} />
-                  </CardContent>
-                </Card>
+                <FundEvidencePanel fund={selectedFund} scoringModel={options?.scoring_model ?? []} />
               )}
+
+              <HotspotAnalysisSection response={result} selectedHotspot={selectedHotspot} />
+
+              <div className="grid gap-8 xl:grid-cols-2">
+                <MarketingCopyPanel copy={result.marketing_copy} strategy={result.channel_strategy} />
+                <CompliancePanel compliance={result.compliance} />
+              </div>
+
+              {selectedFund && (
+                <section>
+                  <div className="mb-3 flex items-center gap-2">
+                    <ShieldCheck size={17} className="text-muted-foreground" />
+                    <h2 className="text-base font-semibold">适当性边界</h2>
+                  </div>
+                  <div className="grid gap-3 rounded-md border p-4 md:grid-cols-2">
+                    <div>
+                      <div className="mb-1 text-sm font-medium">适合客户</div>
+                      <p className="text-sm leading-6 text-muted-foreground">{selectedFund.suitable_clients}</p>
+                    </div>
+                    <div>
+                      <div className="mb-1 text-sm font-medium">不适合客户</div>
+                      <p className="text-sm leading-6 text-muted-foreground">{selectedFund.unsuitable_clients}</p>
+                    </div>
+                    <div>
+                      <div className="mb-1 text-sm font-medium">风险提示</div>
+                      <p className="text-sm leading-6 text-muted-foreground">{selectedFund.risk_warning}</p>
+                    </div>
+                    <div>
+                      <div className="mb-1 text-sm font-medium">渠道表达重点</div>
+                      <p className="text-sm leading-6 text-muted-foreground">{result.channel_strategy.messaging_focus.join(" / ")}</p>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              <ExcludedFundsPanel funds={result.excluded_funds} />
             </div>
           )}
         </section>
       </div>
     </main>
+  );
+}
+
+function HotspotAnalysisSection({
+  response,
+  selectedHotspot,
+}: {
+  response: CampaignResponse;
+  selectedHotspot?: TodayHotspot;
+}) {
+  return (
+    <section>
+      <div className="mb-3 flex items-center gap-2">
+        <LineChart size={17} className="text-muted-foreground" />
+        <h2 className="text-base font-semibold">热点主题分析</h2>
+      </div>
+      <div className="space-y-4 rounded-md border p-5">
+        <p className="text-sm leading-6 text-muted-foreground">{response.hotspot_analysis.summary}</p>
+
+        <TagBlock title="主题标签" items={response.hotspot_analysis.themes} />
+        <TagBlock title="相关行业" items={response.hotspot_analysis.industries} />
+        <TagBlock title="关键词" items={response.hotspot_analysis.keywords} />
+
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+          <div className="mb-1 text-sm font-medium text-amber-950">主要风险</div>
+          <p className="text-sm leading-6 text-amber-900">{response.hotspot_analysis.risks.join(" / ")}</p>
+        </div>
+
+        {selectedHotspot && (selectedHotspot.evidence_headlines?.length ?? 0) > 0 && (
+          <div>
+            <div className="mb-2 text-sm font-medium">来源新闻</div>
+            <div className="space-y-1.5">
+              {selectedHotspot.evidence_headlines?.slice(0, 3).map((headline) => (
+                <p key={`${headline.title}-${headline.source}`} className="text-xs leading-5 text-muted-foreground">
+                  {headline.source}：{headline.title}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function TagBlock({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="text-sm font-medium">{title}</div>
+      <div className="flex flex-wrap gap-1.5">
+        {items.map((item) => (
+          <Badge key={item} variant="muted">{item}</Badge>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -365,99 +425,4 @@ function StatItem({ label, value }: { label: string; value: string }) {
       <span className="font-medium">{value}</span>
     </div>
   );
-}
-
-function HotspotAnalysisCard({
-  response,
-  selectedHotspot,
-}: {
-  response: CampaignResponse;
-  selectedHotspot?: TodayHotspot;
-}) {
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2">
-          <LineChart size={18} />
-          热点主题分析
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm leading-6 text-muted-foreground">{response.hotspot_analysis.summary}</p>
-        {selectedHotspot && (
-          <div className="rounded-md border bg-background p-3">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <Badge variant="success">{selectedHotspot.source}</Badge>
-              <Badge variant="info">AI提炼</Badge>
-            </div>
-            <p className="text-sm leading-6 text-muted-foreground">
-              新闻来源摘要：{selectedHotspot.summary}
-            </p>
-            <p className="mt-2 text-xs leading-5 text-muted-foreground">
-              {selectedHotspot.source_detail || "热点由公开新闻标题提炼，需结合投研和合规人工复核。"}
-            </p>
-            {(selectedHotspot.evidence_headlines?.length ?? 0) > 0 && (
-              <div className="mt-3 space-y-2">
-                <div className="text-xs font-medium text-foreground">证据标题</div>
-                {selectedHotspot.evidence_headlines?.map((headline) => (
-                  <div key={`${headline.title}-${headline.source}`} className="rounded-md border px-3 py-2">
-                    <p className="line-clamp-2 text-xs leading-5 text-foreground">{headline.title}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {headline.source}
-                      {headline.published_at ? ` / ${formatDateTime(headline.published_at)}` : ""}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-        <TagBlock title="主题标签" items={response.hotspot_analysis.themes} />
-        <TagBlock title="相关行业" items={response.hotspot_analysis.industries} />
-        <TagBlock title="关键词" items={response.hotspot_analysis.keywords} />
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
-          <div className="mb-1 flex items-center gap-2 text-sm font-medium text-amber-950">
-            <FileText size={15} />
-            主要风险
-          </div>
-          <p className="text-sm leading-6 text-amber-900">{response.hotspot_analysis.risks.join(" / ")}</p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function TagBlock({ title, items }: { title: string; items: string[] }) {
-  return (
-    <div className="space-y-2">
-      <div className="text-sm font-medium">{title}</div>
-      <div className="flex flex-wrap gap-1.5">
-        {items.map((item) => (
-          <Badge key={item} variant="muted">
-            {item}
-          </Badge>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function BoundaryBlock({ title, text }: { title: string; text: string }) {
-  return (
-    <div className="rounded-md border bg-background p-3">
-      <div className="mb-1 text-sm font-medium">{title}</div>
-      <p className="text-sm leading-6 text-muted-foreground">{text}</p>
-    </div>
-  );
-}
-
-function formatDateTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }

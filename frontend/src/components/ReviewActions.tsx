@@ -2,7 +2,6 @@ import { Download, ShieldCheck } from "lucide-react";
 import { CampaignResponse } from "../api/campaignApi";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Card, CardContent } from "./ui/card";
 
 type Props = {
   result: CampaignResponse;
@@ -21,27 +20,23 @@ export function ReviewActions({ result }: Props) {
   }
 
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <ShieldCheck size={17} />
-            <span className="text-sm font-semibold">审核状态</span>
-            <Badge variant="warning">待人工复核</Badge>
-            <Badge variant={result.compliance.passed ? "success" : "warning"}>
-              {result.compliance.passed ? "基础规则通过" : "基础规则需处理"}
-            </Badge>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            AI 生成内容和推导字段仅作为材料初稿，需经合规和渠道负责人确认后使用。
-          </p>
-        </div>
-        <Button type="button" variant="outline" onClick={exportMarkdown}>
-          <Download size={15} />
-          导出审核稿
-        </Button>
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-3 rounded-md border bg-card px-4 py-3 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-wrap items-center gap-2">
+        <ShieldCheck size={17} />
+        <span className="text-sm font-semibold">审核状态</span>
+        <Badge variant="warning">待人工复核</Badge>
+        <Badge variant={result.compliance.passed ? "success" : "warning"}>
+          {result.compliance.passed ? "基础规则通过" : "基础规则需处理"}
+        </Badge>
+        <span className="text-xs text-muted-foreground">
+          AI 生成内容仅作初稿，需经合规确认后使用。
+        </span>
+      </div>
+      <Button type="button" variant="outline" onClick={exportMarkdown}>
+        <Download size={15} />
+        导出审核稿
+      </Button>
+    </div>
   );
 }
 

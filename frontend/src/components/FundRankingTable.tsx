@@ -50,15 +50,12 @@ export function FundRankingTable({ funds, selectedFundCode, onSelect }: Props) {
                 ))}
               </span>
             </span>
-            <span className="flex flex-col items-end gap-1">
+            <span className="flex flex-col items-end gap-0.5">
               <strong className="text-lg leading-none">{fund.score}</strong>
-              {fund.category_rank > 0 && (
-                <span className="text-xs text-muted-foreground">同组 {fund.category_rank}/{fund.category_total}</span>
-              )}
-              <span className="text-xs text-muted-foreground">质量 {fund.data_quality_score.toFixed(0)}</span>
-              <Badge variant={fund.is_enriched ? "success" : "warning"}>
-                {fund.is_enriched ? "详情字段" : "基础字段"}
-              </Badge>
+              <span className="text-xs text-muted-foreground">
+                {fund.category_rank > 0 ? `同组 ${fund.category_rank}/${fund.category_total}` : ""}
+                {fund.category_rank > 0 ? " · " : ""}质量 {fund.data_quality_score.toFixed(0)}
+              </span>
             </span>
           </button>
         ))}

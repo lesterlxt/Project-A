@@ -1,7 +1,6 @@
 import { AlertTriangle } from "lucide-react";
 import { RecommendedFund } from "../api/campaignApi";
 import { Badge } from "./ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 
 type Props = {
   funds: RecommendedFund[];
@@ -9,21 +8,14 @@ type Props = {
 
 export function ExcludedFundsPanel({ funds }: Props) {
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2">
-          <AlertTriangle size={18} />
-          未进入候选池
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
+    <section>
+      <SectionHeading icon={AlertTriangle} title="未进入候选池" />
+      <div className="space-y-2 rounded-md border p-4">
         {funds.length === 0 && (
-          <p className="rounded-md border bg-background p-3 text-sm text-muted-foreground">
-            当前没有返回被排除基金样本。
-          </p>
+          <p className="text-sm text-muted-foreground">当前没有返回被排除基金样本。</p>
         )}
         {funds.slice(0, 8).map((fund) => (
-          <div key={fund.fund_code} className="rounded-md border bg-background p-3">
+          <div key={fund.fund_code} className="border-b pb-3 last:border-b-0 last:pb-0">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="truncate text-sm font-semibold">{fund.fund_name}</div>
@@ -41,7 +33,16 @@ export function ExcludedFundsPanel({ funds }: Props) {
             </p>
           </div>
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
+  );
+}
+
+function SectionHeading({ icon: Icon, title }: { icon: typeof AlertTriangle; title: string }) {
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <Icon size={17} className="text-muted-foreground" />
+      <h2 className="text-base font-semibold">{title}</h2>
+    </div>
   );
 }
