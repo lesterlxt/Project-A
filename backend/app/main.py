@@ -1,9 +1,33 @@
+import json
+import os
+
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from app.agents.fund_data_agent import FundDataAgent
-from app.orchestrator.campaign_orchestrator import CampaignOrchestrator
-from app.schemas import AppOptionsResponse, CampaignRequest, CampaignResponse, EFundSupermarketResponse, FundPoolStatusResponse, FundPoolSummaryResponse, FundSyncRequest, FundSyncResponse, HotspotAnalysisRequest, HotspotAnalysisResponse, MarketOverviewResponse, StockIndustryImportResponse, TodayHotspotsResponse
+from app.agents.hotspot_agent import HotspotAgent
+from app.orchestrator.graph_orchestrator import GraphOrchestrator
+from app.services.fund_loader import FundLoader
+from app.schemas import (
+    AppOptionsResponse,
+    CampaignRequest,
+    CampaignResponse,
+    CampaignStreamResponse,
+    EFundSupermarketResponse,
+    FundPoolStatusResponse,
+    FundPoolSummaryResponse,
+    FundSyncRequest,
+    FundSyncResponse,
+    HotspotAnalysisRequest,
+    HotspotAnalysisResponse,
+    MarketOverviewResponse,
+    StockIndustryImportResponse,
+    TodayHotspotsResponse,
+)
+from app.services.feishu_bot import get_feishu_bot
 from app.services.stock_industry_importer import StockIndustryImporter
 from app.services.efund_supermarket_service import EFundSupermarketService
 from app.services.fund_data_provider import FundDataProviderError
@@ -12,10 +36,23 @@ from app.services.llm_client import DeepSeekClient
 from app.services.market_data_service import MarketDataService
 from app.services.rule_config import load_rule_config
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup: launch Feishu Bot WebSocket client."""
+    bot = get_feishu_bot()
+    if bot.is_configured:
+        await bot.start()
+    yield
+    """Shutdown: stop Feishu Bot."""
+    if bot.is_configured:
+        await bot.stop()
+
+
 app = FastAPI(
     title="Project A - AI Fund Marketing Platform",
     description="AI hotspot driven fund selection and marketing material generation MVP.",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -30,7 +67,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-orchestrator = CampaignOrchestrator()
+fund_loader = FundLoader()
+hotspot_agent = HotspotAgent()
+graph_orchestrator = GraphOrchestrator()
 hotspot_provider = NewsHotspotProvider()
 fund_data_agent = FundDataAgent()
 market_data_service = MarketDataService()
@@ -72,12 +111,12 @@ def sync_funds(request: FundSyncRequest) -> FundSyncResponse:
 
 @app.get("/api/funds/status", response_model=FundPoolStatusResponse)
 def fund_pool_status() -> FundPoolStatusResponse:
-    return FundPoolStatusResponse(**orchestrator.fund_loader.status())
+    return FundPoolStatusResponse(**fund_loader.status())
 
 
 @app.get("/api/funds/summary", response_model=FundPoolSummaryResponse)
 def fund_pool_summary() -> FundPoolSummaryResponse:
-    return FundPoolSummaryResponse(**orchestrator.fund_loader.summary())
+    return FundPoolSummaryResponse(**fund_loader.summary())
 
 
 @app.get("/api/market/overview", response_model=MarketOverviewResponse)
@@ -100,7 +139,7 @@ def app_options() -> AppOptionsResponse:
 
 @app.post("/api/analyze-hotspot", response_model=HotspotAnalysisResponse)
 def analyze_hotspot(request: HotspotAnalysisRequest) -> HotspotAnalysisResponse:
-    return orchestrator.analyze_hotspot(request.hotspot)
+    return hotspot_agent.analyze(request.hotspot)
 
 
 @app.post("/api/industry/refresh", response_model=StockIndustryImportResponse)
@@ -125,4 +164,59 @@ def refresh_stock_industry(force: bool = False) -> StockIndustryImportResponse:
 
 @app.post("/api/run-campaign", response_model=CampaignResponse)
 def run_campaign(request: CampaignRequest) -> CampaignResponse:
-    return orchestrator.run(request)
+    """Run full pipeline via LangGraph (synchronous, backward-compatible)."""
+    return graph_orchestrator.run_sync(request)
+
+
+@app.post("/api/run-campaign/stream")
+async def run_campaign_stream(request: CampaignRequest):
+    """Run full pipeline via LangGraph with SSE progress events.
+
+    Returns a text/event-stream of AgentEvent JSON lines,
+    terminated by a final CampaignStreamResponse JSON line.
+    """
+    async def event_stream():
+        async for chunk in graph_orchestrator.run_stream(request):
+            yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# ── Feishu Bot ─────────────────────────────────────────────────────────
+
+
+@app.get("/api/feishu/status")
+def feishu_bot_status() -> dict:
+    """Check whether the Feishu Bot is configured and running."""
+    bot = get_feishu_bot()
+    status = bot.status()
+    return {
+        **status,
+        "mode": "websocket",
+        "app_id": (os.getenv("FEISHU_APP_ID", "")[:12] + "***") if bot.is_configured else "",
+    }
+
+
+@app.post("/api/feishu/event")
+async def feishu_webhook(request: dict, background_tasks=None):
+    """Optional HTTP webhook endpoint for Feishu event subscription.
+
+    Use this only if you switch the Feishu app from WebSocket to HTTP webhook mode.
+    In WebSocket mode this endpoint is not called.
+    """
+    from fastapi import BackgroundTasks
+
+    # URL verification challenge
+    if request.get("type") == "url_verification":
+        return {"challenge": request.get("challenge", "")}
+
+    # For now, webhook mode is not the primary path
+    return {"status": "ok", "message": "WebSocket mode is recommended for local dev."}

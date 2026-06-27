@@ -6,8 +6,8 @@ const sourceLabels: Record<string, string> = {
   inferred: "规则推导",
   mapped: "持仓映射",
   mapped_from_holding_weight: "持仓权重映射",
-  holding_count_fallback: "持仓数量映射，仅供参考",
-  generated: "AI生成",
+  holding_count_fallback: "持仓数量映射",
+  generated: "AI 生成",
   missing: "暂无数据",
 };
 
@@ -26,6 +26,20 @@ export function sourceLabel(source: string) {
   return sourceLabels[source] ?? source;
 }
 
-export function SourceBadge({ source }: { source: string }) {
-  return <Badge variant={variants[source] ?? "muted"}>{sourceLabel(source)}</Badge>;
+export function SourceBadge({
+  source,
+  className,
+}: {
+  source: string;
+  className?: string;
+}) {
+  return (
+    <Badge
+      variant={variants[source] ?? "muted"}
+      size="sm"
+      className={className}
+    >
+      {sourceLabel(source)}
+    </Badge>
+  );
 }

@@ -115,11 +115,11 @@ Workflow coordinator  -> ReviewOrchestrator
 
 ### P2 Gaps
 
-These gaps affect product completeness:
+Progress (updated 2026-06-27):
 
-- no formal multi-agent state machine;
-- no LangGraph flow yet;
-- no Feishu chatbot endpoint;
+- ✅ formal multi-agent state machine — LangGraph `StateGraph` with 7 nodes + conditional routing
+- ✅ LangGraph flow — `GraphOrchestrator` with SSE event streaming
+- ✅ Feishu chatbot endpoint — `FeishuBotService` via WebSocket, 6 intent handlers, message cards (pending Feishu app credentials)
 - no persistent human-review workflow;
 - no review history or audit log.
 
@@ -275,7 +275,7 @@ For a demo / defense, the project should prove:
 3. ✅ It does not blindly trust LLM output. — Data provenance badges on every field
 4. ✅ It shows evidence and score formulas in the frontend. — FundEvidencePanel + scoring model
 5. ✅ It has risk and compliance boundaries. — EligibilityAgent + ComplianceChecker
-6. ⬜ It can extend from React workbench to Feishu chatbot. — P2, not yet started
+6. ✅ It can extend from React workbench to Feishu chatbot. — Backend complete, pending credentials
 ```
 
 For production-readiness, it would still need:

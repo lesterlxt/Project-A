@@ -149,10 +149,10 @@ P1 仍可增强：
 - 持仓权重数据依赖东方财富接口返回 `Data_fundSharesPositions`；若接口不返回该字段则权重为空，行业暴露回退为数量聚合或关键词推导
 - Sharpe/Calmar 比率、同业排名等需要额外数据源
 
-P2 待启动：
-- 多 Agent 编排（事件日志、Agent 合约）
-- LangGraph 状态机
-- 飞书 Chatbot 集成
+P2 ：
+- ✅ 多 Agent 编排（事件日志、Agent 合约）
+- ✅ LangGraph 状态机
+- ✅ 飞书 Chatbot 集成（后端已完成，待配置飞书应用凭证）
 - 人工审核工作流与审计日志
 
 ## 数据边界
@@ -214,6 +214,17 @@ cp frontend/.env.example frontend/.env
 - React 工作台: http://127.0.0.1:5173
 - FastAPI Swagger: http://127.0.0.1:8000/docs
 
+### 飞书 Chatbot（可选）
+
+在飞书开发者后台创建企业自建应用，开启 Bot 能力，在 `.env` 添加：
+
+```env
+FEISHU_APP_ID=cli_xxxxx
+FEISHU_APP_SECRET=xxxxx
+```
+
+后端启动时会自动通过 WebSocket 连接飞书，无需公网 URL。配置后可在飞书里 @机器人 交互。
+
 ### 同步基金池
 
 ```bash
@@ -237,7 +248,9 @@ curl -X POST http://127.0.0.1:8000/api/funds/sync \
 | POST | `/api/funds/sync` | 同步基金池（含申万行业分类自动同步） |
 | POST | `/api/industry/refresh` | 手动刷新持仓股票申万行业分类映射 |
 | POST | `/api/analyze-hotspot` | 单个热点深度分析 |
-| POST | `/api/run-campaign` | 完整选品和营销流水线 |
+| POST | `/api/run-campaign` | 完整选品和营销流水线（同步） |
+| POST | `/api/run-campaign/stream` | 完整选品和营销流水线（SSE 流式） |
+| GET | `/api/feishu/status` | 飞书 Bot 配置状态 |
 
 ## 项目结构
 
@@ -251,8 +264,11 @@ backend/app/
 │   ├── channel_strategy_agent.py
 │   └── copywriting_agent.py
 ├── orchestrator/
-│   └── campaign_orchestrator.py
+│   ├── campaign_orchestrator.py
+│   └── graph_orchestrator.py
 ├── services/
+│   ├── feishu_bot.py
+│   ├── feishu_card.py
 │   ├── fund_data_provider.py
 │   ├── fund_loader.py
 │   ├── fund_scorer.py

@@ -277,6 +277,24 @@ export type CampaignResponse = {
   compliance: ComplianceResult;
 };
 
+/* ── Agent Pipeline Event (SSE streaming) ── */
+
+export type AgentEvent = {
+  step: string;
+  status: "started" | "completed" | "failed" | "skipped";
+  timestamp: string;
+  duration_ms: number | null;
+  message: string;
+  data?: Record<string, unknown> | null;
+};
+
+export type CampaignStreamResponse = {
+  status: "completed" | "partial" | "failed";
+  result: CampaignResponse | null;
+  error: string;
+  events: AgentEvent[];
+};
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
 
 export async function runCampaign(request: CampaignRequest): Promise<CampaignResponse> {
@@ -294,6 +312,95 @@ export async function runCampaign(request: CampaignRequest): Promise<CampaignRes
   }
 
   return response.json();
+}
+
+/* ── Streaming Campaign ── */
+
+export function runCampaignStream(
+  request: CampaignRequest,
+  onEvent: (event: AgentEvent) => void,
+  onComplete: (response: CampaignResponse) => void,
+  onError: (error: Error) => void,
+): AbortController {
+  const controller = new AbortController();
+
+  (async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/run-campaign/stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || "请求失败");
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("无法读取响应流");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Parse SSE events from buffer
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? ""; // keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const raw = line.slice(6);
+            try {
+              const parsed = JSON.parse(raw);
+
+              // Check if this is the final CampaignStreamResponse
+              if (parsed.status && (parsed.status === "completed" || parsed.status === "partial" || parsed.status === "failed")) {
+                const final = parsed as CampaignStreamResponse;
+                if (final.status === "failed") {
+                  onError(new Error(final.error || "分析失败"));
+                } else if (final.result) {
+                  onComplete(final.result);
+                } else {
+                  onError(new Error("分析未返回有效结果"));
+                }
+                return;
+              }
+
+              // Otherwise treat as AgentEvent
+              onEvent(parsed as AgentEvent);
+            } catch {
+              // Skip malformed lines
+            }
+          }
+        }
+      }
+
+      // Process remaining buffer
+      if (buffer.startsWith("data: ")) {
+        try {
+          const parsed = JSON.parse(buffer.slice(6));
+          if (parsed.status && parsed.result) {
+            onComplete(parsed.result as CampaignResponse);
+            return;
+          }
+        } catch {
+          // ignore
+        }
+      }
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return;
+      onError(err instanceof Error ? err : new Error("流式请求失败"));
+    }
+  })();
+
+  return controller;
 }
 
 export async function fetchTodayHotspots(): Promise<TodayHotspotsResponse> {

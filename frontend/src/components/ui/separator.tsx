@@ -1,6 +1,25 @@
 import * as React from "react";
 import { cn } from "../../lib/utils";
 
-export function Separator({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("h-px w-full bg-border", className)} {...props} />;
+export function Separator({
+  className,
+  decorative = true,
+  orientation = "horizontal",
+  ...props
+}: React.HTMLAttributes<HTMLDivElement> & {
+  decorative?: boolean;
+  orientation?: "horizontal" | "vertical";
+}) {
+  return (
+    <div
+      role={decorative ? "none" : "separator"}
+      aria-orientation={orientation}
+      className={cn(
+        "shrink-0 bg-border",
+        orientation === "horizontal" ? "h-px w-full" : "h-full w-px",
+        className,
+      )}
+      {...props}
+    />
+  );
 }

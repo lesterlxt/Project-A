@@ -11,7 +11,12 @@ type Props = {
   onSync: () => void;
 };
 
-export function FundPoolStatusCard({ status, syncing, message, onSync }: Props) {
+export function FundPoolStatusCard({
+  status,
+  syncing,
+  message,
+  onSync,
+}: Props) {
   const updatedAt = status?.latest_updated_at
     ? new Date(status.latest_updated_at).toLocaleString("zh-CN", {
         month: "2-digit",
@@ -25,31 +30,66 @@ export function FundPoolStatusCard({ status, syncing, message, onSync }: Props) 
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="flex items-center gap-2">
-            <Database size={18} />
-            基金池
+          <CardTitle>
+            <Database size={17} className="text-primary" />
+            基金池状态
           </CardTitle>
-          <Badge variant={status?.available ? "success" : "warning"}>{status?.available ? "SQLite" : "未就绪"}</Badge>
+          <Badge
+            variant={status?.available ? "success" : "warning"}
+            size="sm"
+          >
+            {status?.available ? "就绪" : "未就绪"}
+          </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="border-b pb-3">
-          <div className="text-xs text-muted-foreground">基金数量</div>
-          <div className="mt-1 text-2xl font-semibold">{(status?.total_count ?? 0).toLocaleString("zh-CN")}</div>
+        {/* Count */}
+        <div className="flex items-end justify-between">
+          <div className="text-caption text-muted-foreground">本地候选基金</div>
+          <span className="text-data tabular-nums text-foreground">
+            {(status?.total_count ?? 0).toLocaleString("zh-CN")}
+          </span>
         </div>
-        <div className="space-y-2 text-xs leading-5 text-muted-foreground">
-          <p>来源：{status?.source || "东方财富 / 天天基金公开接口"}</p>
-          <p>
-            筛选逻辑：先读取公开基金代码列表，再按系统配置的主题关键词筛选，默认保留前 3,000 只进入本地候选基金池。
-          </p>
-          <p>更新：{updatedAt}</p>
-          <p>存储：{status?.storage || "SQLite"}</p>
+
+        {/* Meta */}
+        <div className="space-y-2 rounded-md bg-muted/50 px-3 py-2.5 text-caption leading-relaxed text-muted-foreground">
+          <div className="flex justify-between">
+            <span>来源</span>
+            <span className="text-foreground/70">
+              {status?.source || "东方财富 / 天天基金"}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span>存储</span>
+            <span className="text-foreground/70">
+              {status?.storage || "SQLite"}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span>更新</span>
+            <span className="text-foreground/70">{updatedAt}</span>
+          </div>
         </div>
-        <Button type="button" variant="outline" className="w-full" onClick={onSync} disabled={syncing}>
-          <RefreshCw size={15} className={syncing ? "animate-spin" : ""} />
+
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={onSync}
+          disabled={syncing}
+        >
+          <RefreshCw
+            size={14}
+            className={syncing ? "animate-spin" : ""}
+          />
           {syncing ? "同步中..." : "同步真实基金池"}
         </Button>
-        {message && <p className="text-xs leading-5 text-muted-foreground">{message}</p>}
+
+        {message && (
+          <p className="rounded-md bg-success-subtle px-3 py-2 text-micro text-success">
+            {message}
+          </p>
+        )}
       </CardContent>
     </Card>
   );

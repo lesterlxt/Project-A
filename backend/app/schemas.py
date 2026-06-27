@@ -297,6 +297,24 @@ class CampaignResponse(BaseModel):
     compliance: ComplianceResult
 
 
+class AgentEvent(BaseModel):
+    """Multi-agent pipeline event for SSE streaming and audit trail."""
+    step: str
+    status: str  # "started" | "completed" | "failed" | "skipped"
+    timestamp: str = ""
+    duration_ms: float | None = None
+    message: str = ""
+    data: dict | None = None
+
+
+class CampaignStreamResponse(BaseModel):
+    """Final response wrapper for SSE stream completion."""
+    status: str  # "completed" | "partial" | "failed"
+    result: CampaignResponse | None = None
+    error: str = ""
+    events: list[AgentEvent] = Field(default_factory=list)
+
+
 class StockIndustryImportResponse(BaseModel):
     total_codes: int
     imported: int

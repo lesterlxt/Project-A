@@ -1,4 +1,4 @@
-import { AlertTriangle, Play, Sparkles } from "lucide-react";
+import { AlertTriangle, Play, Settings2 } from "lucide-react";
 import { FormEvent } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -46,68 +46,114 @@ export function ControlPanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Sparkles size={18} />
+        <CardTitle>
+          <Settings2 size={17} className="text-primary" />
           分析参数
         </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={onSubmit} className="space-y-5">
+          {/* Hotspot input */}
           <div className="space-y-2">
-            <Label>市场热点</Label>
-            <Input value={hotspot} onChange={(event) => onHotspotChange(event.target.value)} />
-            <p className="text-xs leading-5 text-muted-foreground">
-              可手动输入，也可在热点新闻面板选择今日主题。
+            <Label htmlFor="hotspot">市场热点</Label>
+            <Input
+              id="hotspot"
+              value={hotspot}
+              onChange={(event) =>
+                onHotspotChange(event.target.value)
+              }
+              placeholder="输入热点主题..."
+            />
+            <p className="text-micro text-muted-foreground">
+              可手动输入，也可在热点新闻面板选择今日主题
             </p>
           </div>
 
+          {/* Channel */}
           <div className="space-y-2">
-            <Label>银行渠道</Label>
-            <Select value={channel} onChange={(event) => onChannelChange(event.target.value)} options={channels} />
+            <Label htmlFor="channel">银行渠道</Label>
+            <Select
+              id="channel"
+              value={channel}
+              onChange={(event) =>
+                onChannelChange(event.target.value)
+              }
+              options={channels}
+            />
           </div>
 
+          {/* Risk & Fund Type */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>风险偏好</Label>
+              <Label htmlFor="risk">风险偏好</Label>
               <Select
+                id="risk"
                 value={riskPreference}
-                onChange={(event) => onRiskPreferenceChange(event.target.value)}
+                onChange={(event) =>
+                  onRiskPreferenceChange(event.target.value)
+                }
                 options={riskPreferences}
               />
             </div>
             <div className="space-y-2">
-              <Label>基金类型</Label>
+              <Label htmlFor="fund-type">基金类型</Label>
               <Select
+                id="fund-type"
                 value={fundTypeFilter}
-                onChange={(event) => onFundTypeFilterChange(event.target.value)}
+                onChange={(event) =>
+                  onFundTypeFilterChange(event.target.value)
+                }
                 options={fundTypes}
               />
             </div>
           </div>
 
+          {/* Top-K slider */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center justify-between">
               <Label>候选数量</Label>
-              <span className="text-sm font-semibold">{topK}</span>
+              <span className="text-h3 tabular-nums text-foreground">
+                {topK}
+                <span className="text-caption font-normal text-muted-foreground">
+                  {" "}
+                  只
+                </span>
+              </span>
             </div>
             <input
-              className="w-full accent-slate-800"
+              className="w-full accent-primary"
               type="range"
               min="3"
               max="10"
               value={topK}
-              onChange={(event) => onTopKChange(Number(event.target.value))}
+              onChange={(event) =>
+                onTopKChange(Number(event.target.value))
+              }
             />
+            <div className="flex justify-between text-micro text-muted-foreground">
+              <span>3</span>
+              <span>10</span>
+            </div>
           </div>
 
-          <Button className="w-full" size="lg" disabled={loading || !hotspot.trim()}>
-            <Play size={15} />
+          {/* Submit */}
+          <Button
+            className="w-full"
+            size="lg"
+            disabled={loading || !hotspot.trim()}
+            type="submit"
+          >
+            <Play size={16} />
             {loading ? "分析中..." : "开始分析"}
           </Button>
 
+          {/* Error */}
           {error && (
-            <div className="flex gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm leading-5 text-red-800">
-              <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+            <div className="flex gap-2 rounded-lg border border-danger/30 bg-danger-subtle p-3 text-caption leading-relaxed text-danger">
+              <AlertTriangle
+                size={15}
+                className="mt-0.5 shrink-0"
+              />
               <span>{error}</span>
             </div>
           )}
