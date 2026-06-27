@@ -42,11 +42,29 @@ export function FundEvidencePanel({ fund, scoringModel }: Props) {
             <InfoRow label="类型" value={fund.fund_type} source={fund.field_sources.fund_type} />
             <InfoRow label="经理" value={fund.manager || "--"} source={fund.field_sources.manager} />
             <InfoRow label="风险等级" value={fund.risk_level} source={fund.field_sources.risk_level} />
+            {(fund as any).risk_level_source && (
+              <InfoRow label="风险等级来源" value={riskLevelSourceLabel((fund as any).risk_level_source)} source={fund.field_sources.risk_level_source ?? "inferred"} />
+            )}
             <InfoRow label="最新净值" value={fund.latest_nav || "--"} source={fund.field_sources.latest_nav} />
             <InfoRow label="估算涨幅" value={fund.estimated_growth || "--"} source={fund.field_sources.estimated_growth} />
             <InfoRow label="近1年收益" value={formatPct(fund.one_year_return)} source={fund.field_sources.one_year_return} />
             <InfoRow label="波动率" value={formatPct(fund.volatility)} source={fund.field_sources.volatility} />
             <InfoRow label="最大回撤" value={formatPct(fund.max_drawdown)} source={fund.field_sources.max_drawdown} />
+            {(fund as any).manager_tenure && (
+              <InfoRow label="经理任期" value={(fund as any).manager_tenure} source={fund.field_sources.manager_tenure ?? "missing"} />
+            )}
+            {(fund as any).fund_size && (
+              <InfoRow label="基金规模" value={(fund as any).fund_size} source={fund.field_sources.fund_size ?? "missing"} />
+            )}
+            {(fund as any).inception_date && (
+              <InfoRow label="成立日期" value={(fund as any).inception_date} source={fund.field_sources.inception_date ?? "missing"} />
+            )}
+            {(fund as any).management_fee && (
+              <InfoRow label="管理费率" value={(fund as any).management_fee} source={fund.field_sources.management_fee ?? "missing"} />
+            )}
+            {(fund as any).custody_fee && (
+              <InfoRow label="托管费率" value={(fund as any).custody_fee} source={fund.field_sources.custody_fee ?? "missing"} />
+            )}
           </div>
         </div>
 
@@ -131,11 +149,16 @@ export function FundEvidencePanel({ fund, scoringModel }: Props) {
           <div>
             <div className="mb-1.5 flex items-center justify-between gap-3">
               <div className="text-sm font-medium">行业配置</div>
-              <SourceBadge source={fund.field_sources.industry_allocation} />
+              <SourceBadge source={fund.field_sources.industry_allocation ?? "missing"} />
             </div>
             <p className="text-sm leading-6 text-muted-foreground">
               {industries.length ? industries.map(([name, value]) => `${name} ${value.toFixed(1)}%`).join(" / ") : "--"}
             </p>
+            {fund.field_sources.industry_allocation === "holding_count_fallback" && (
+              <p className="mt-1 text-xs text-muted-foreground italic">
+                当前行业暴露基于持仓股票数量聚合，非真实持仓权重。建议人工确认。
+              </p>
+            )}
           </div>
         </div>
 
@@ -187,4 +210,10 @@ function InfoRow({ label, value, source }: { label: string; value: string; sourc
 function formatPct(value: number | null) {
   if (value === null) return "--";
   return `${value.toFixed(2)}%`;
+}
+
+function riskLevelSourceLabel(source: string) {
+  if (source === "official") return "官方评级";
+  if (source === "inferred_from_fund_type") return "基金类型推导";
+  return source || "未知";
 }

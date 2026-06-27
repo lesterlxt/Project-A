@@ -107,10 +107,18 @@ class RuleConfig:
                 "formula": (
                     f"min({scoring['holding_match_max']}, "
                     f"热点行业暴露合计 x {scoring['holding_match_multiplier']})"
+                    + (
+                        f"；数量/推导口径 x {scoring.get('holding_match_fallback_multiplier', 0.5)}"
+                        if scoring.get("holding_match_fallback_multiplier")
+                        else ""
+                    )
                 ),
-                "description": "衡量基金行业配置中命中热点行业的暴露程度；行业暴露可能来自真实映射或规则推导。",
+                "description": (
+                    "行业暴露按可信度分级加权：持仓权重映射（全权重）、"
+                    "持仓数量聚合（折半）、关键词推导（折半）。缺失时不计分。"
+                ),
                 "max_score": scoring["holding_match_max"],
-                "evidence_fields": ["industry_allocation", "top_holdings"],
+                "evidence_fields": ["industry_allocation", "top_holdings", "industry_allocation_source"],
             },
             {
                 "key": "positioning_match",

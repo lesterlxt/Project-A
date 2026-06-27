@@ -20,9 +20,20 @@ class Fund:
     volatility: float | None
     max_drawdown: float | None
     risk_level: str
+    risk_level_source: str
     suitable_clients: str
     latest_nav: str
     estimated_growth: str
+    fund_size: str
+    inception_date: str
+    management_fee: str
+    custody_fee: str
+    sales_service_fee: str
+    official_risk_level: str
+    manager_tenure: str
+    sharpe_ratio: str
+    calmar_ratio: str
+    peer_rank: str
     data_source: str
     data_updated_at: str
     is_enriched: bool
@@ -67,11 +78,10 @@ class FundLoader:
                 row["name"]
                 for row in connection.execute("PRAGMA table_info(funds)").fetchall()
             }
-            industry_source_expr = (
-                "industry_allocation_source"
-                if "industry_allocation_source" in columns
-                else "'' AS industry_allocation_source"
-            )
+
+            def _col(name: str, fallback: str = "''") -> str:
+                return name if name in columns else f"{fallback} AS {name}"
+
             rows = connection.execute(
                 f"""
                 SELECT
@@ -82,14 +92,25 @@ class FundLoader:
                     positioning,
                     top_holdings,
                     industry_allocation,
-                    {industry_source_expr},
+                    {_col("industry_allocation_source")},
                     one_year_return,
                     volatility,
                     max_drawdown,
                     risk_level,
+                    {_col("risk_level_source", "'inferred_from_fund_type'")},
                     suitable_clients,
                     latest_nav,
                     estimated_growth,
+                    {_col("fund_size")},
+                    {_col("inception_date")},
+                    {_col("management_fee")},
+                    {_col("custody_fee")},
+                    {_col("sales_service_fee")},
+                    {_col("official_risk_level")},
+                    {_col("manager_tenure")},
+                    {_col("sharpe_ratio")},
+                    {_col("calmar_ratio")},
+                    {_col("peer_rank")},
                     data_source,
                     data_updated_at,
                     is_enriched
@@ -202,9 +223,20 @@ class FundLoader:
             volatility=_parse_percent(row["volatility"]),
             max_drawdown=_parse_percent(row["max_drawdown"]),
             risk_level=row["risk_level"],
+            risk_level_source=str(row.get("risk_level_source") or "inferred_from_fund_type"),
             suitable_clients=row["suitable_clients"],
             latest_nav=str(row.get("latest_nav") or ""),
             estimated_growth=str(row.get("estimated_growth") or ""),
+            fund_size=str(row.get("fund_size") or ""),
+            inception_date=str(row.get("inception_date") or ""),
+            management_fee=str(row.get("management_fee") or ""),
+            custody_fee=str(row.get("custody_fee") or ""),
+            sales_service_fee=str(row.get("sales_service_fee") or ""),
+            official_risk_level=str(row.get("official_risk_level") or ""),
+            manager_tenure=str(row.get("manager_tenure") or ""),
+            sharpe_ratio=str(row.get("sharpe_ratio") or ""),
+            calmar_ratio=str(row.get("calmar_ratio") or ""),
+            peer_rank=str(row.get("peer_rank") or ""),
             data_source=str(row.get("data_source") or ""),
             data_updated_at=str(row.get("data_updated_at") or ""),
             is_enriched=bool(int(row.get("is_enriched") or 0)),

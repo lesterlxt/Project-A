@@ -344,20 +344,24 @@ stock_industry_map(
 
 This table is not auto-filled with fake data. The provider only creates the table shape and removes or ignores legacy rows with `source='manual_seed'`. If absent or incomplete, the system falls back to keyword rules and should keep the field marked as inferred.
 
-Future improvement: add `fund_holdings` with holding weights:
+### `fund_holdings` table (implemented 2026-06-27):
 
 ```sql
 fund_holdings(
-  fund_code TEXT,
-  stock_code TEXT,
+  fund_code TEXT NOT NULL,
+  stock_code TEXT NOT NULL,
   stock_name TEXT,
   holding_weight REAL,
   report_date TEXT,
-  source TEXT
+  source TEXT,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (fund_code, stock_code, report_date)
 )
 ```
 
-Only then can the system calculate real industry exposure by holding weight.
+Indexes: `fund_code`, `stock_code`, `(fund_code, report_date)`.
+
+Weight data is imported from `Data_fundSharesPositions` in Eastmoney's `pingzhongdata/{code}.js`. Industry exposure is now calculated by `StockIndustryMapper.aggregate_by_holding_weight()` (weight-based, `mapped_from_holding_weight`). When weight data is unavailable, the system falls back to `aggregate_by_holding_count()` (`mapped_from_holding_count`), and further to keyword rules (`keyword_inferred`). The frontend SourceBadge distinguishes these clearly.
 
 ## LLM Usage
 
@@ -486,9 +490,12 @@ P0:
 P1:
 
 ```text
-5. Fund-type bucketed scoring: initial category and same-group rank implemented
-6. Real stock industry mapping table: table shape implemented; default seed disabled; full data import still needed
-7. Recommendation explanation must cite field sources: initial explanation_points implemented
+5. Fund-type bucketed scoring: implemented with 7 categories and within-group ranking
+6. Real stock industry mapping: implemented — 342 Shenwan mappings from Eastmoney F10
+7. Holding-weight-based industry exposure: implemented — fund_holdings table with weight data from Data_fundSharesPositions; weight-based aggregation preferred, count fallback when unavailable
+8. Extended fund fields: fund_size, inception_date, fees, official_risk_level, manager_tenure implemented; Sharpe/Calmar/peer_rank fields added but need additional data source
+9. Risk level source tracking: risk_level_source distinguishes official vs. inferred_from_fund_type
+10. Explanation points cite field sources: implemented
 ```
 
 P2:

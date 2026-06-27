@@ -215,9 +215,21 @@ class RecommendedFund(BaseModel):
     volatility: float | None
     max_drawdown: float | None
     risk_level: str
+    risk_level_source: str = "inferred_from_fund_type"
     positioning: list[str]
     top_holdings: list[str]
     industry_allocation: dict[str, float]
+    industry_allocation_source: str = ""
+    fund_size: str = ""
+    inception_date: str = ""
+    management_fee: str = ""
+    custody_fee: str = ""
+    sales_service_fee: str = ""
+    official_risk_level: str = ""
+    manager_tenure: str = ""
+    sharpe_ratio: str = ""
+    calmar_ratio: str = ""
+    peer_rank: str = ""
     data_source: str
     data_updated_at: str
     is_enriched: bool

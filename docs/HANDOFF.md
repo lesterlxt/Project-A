@@ -1,28 +1,39 @@
 # Project A Handoff
 
-## Current Checkpoint (2026-06-25)
+## Current Checkpoint (2026-06-27)
 
-Two major features landed:
+Three major data credibility improvements landed:
 
-### 1. Real Stock-Industry Mapping (P1 data gap closed)
+### 1. Fund Holdings Weight Data (new)
 
-Replaced keyword-inferred industry allocation with real Shenwan (申万) industry classifications from Eastmoney F10 API.
+Created `fund_holdings` table and imported real holding weights from Eastmoney API.
 
-- **New service**: `backend/app/services/stock_industry_importer.py` — batch-fetches industry data from `emweb.securities.eastmoney.com`
-- **New endpoint**: `POST /api/industry/refresh` — manual refresh of industry mapping table
-- **Integration**: Fund sync Phase 3 automatically refreshes industry mappings after enrichment
-- **Result**: 342 real stock→industry mappings in `stock_industry_map` table, 82/85 enriched funds now use `source="mapped_from_stock_industry_map"` instead of `"keyword_inferred"`
-- **Frontend**: `SourceBadge` now shows green "mapped" badge with "持仓代码行业映射" instead of yellow "inferred" with "规则推导"
+- **New table**: `fund_holdings(fund_code, stock_code, stock_name, holding_weight, report_date, source, updated_at)`
+- **Data source**: Extracted from `Data_fundSharesPositions` variable in `pingzhongdata/{code}.js`
+- **Fallback**: If `Data_fundSharesPositions` is not available in the API response, holding weights are empty (explicitly missing, not fabricated)
+- **Indexes**: `fund_code`, `stock_code`, `(fund_code, report_date)`
+- **Integration**: Fund sync Phase 2 enrichment writes holdings to DB; sync re-runs will upsert
 
-### 2. Fund Detail Page — Business-First Redesign
+### 2. Weight-Based Industry Exposure (replaces count-based)
 
-Shifted from a technical "system output verification" page to a channel-marketing enablement tool.
+Industry allocation now prefers real holding-weight aggregation over counting stocks.
 
-- **New component**: `ChannelFitPanel.tsx` — three-dimension matching analysis (risk fit, client profile fit, product feature fit) derived from existing data
-- **Rewritten**: `MarketingCopyPanel.tsx` (44→200+ lines) — 9 sections: selling points, RM script (with copy button), social post, long form, investor education, objection handling, channel strategy, risk disclosure
-- **Rewritten**: `FundDetailPage.tsx` — business content first (marketing → channel fit → suitability), technical evidence collapsed by default
-- **Backend**: Enhanced `CopywritingAgent` LLM prompt generates 3 new structured fields: `selling_points`, `investor_education`, `objection_handling`
-- **New schema fields**: `MarketingCopy` now includes `selling_points: list[str]`, `investor_education: list[str]`, `objection_handling: list[ObjectionHandling]`
+- **New method**: `StockIndustryMapper.aggregate_by_holding_weight()` — joins `fund_holdings` with `stock_industry_map`, sums by `holding_weight`
+- **Source markers**:
+  - `mapped_from_holding_weight` — weight-based (high confidence, green "持仓权重映射" badge)
+  - `mapped_from_holding_count` — count-based fallback (medium confidence, yellow "持仓数量映射，仅供参考" badge)
+  - `keyword_inferred` — keyword fallback (low confidence, yellow "规则推导" badge)
+- **Scoring**: `holding_match` multiplied by 0.5 when using count or keyword sources; 0 when industry data is missing
+- **Frontend**: Clear distinction between weight-based and count-based industry data; count fallback shows warning text
+
+### 3. Extended Fund Fields & Risk Level Source Tracking
+
+Added fund metadata fields and risk level provenance.
+
+- **New fund fields**: `fund_size`, `inception_date`, `management_fee`, `custody_fee`, `sales_service_fee`, `official_risk_level`, `manager_tenure`, `sharpe_ratio`, `calmar_ratio`, `peer_rank`
+- **Risk level source**: `risk_level_source` field with values `"official"` or `"inferred_from_fund_type"`
+- **Data availability**: Fields extracted from pingzhongdata where available; set to empty string when API doesn't return them
+- **Sharpe/Calmar/peer_rank**: Currently always empty — require additional data source integration
 
 ### Previous checkpoint (pre-analysis workbench cleanup)
 
@@ -162,9 +173,14 @@ curl -X POST http://127.0.0.1:8000/api/industry/refresh         # refresh indust
 
 Best next steps:
 
-1. Import fund holding-weight data (`fund_holdings` table) for accurate industry exposure calculation (table schema ready, data import still needed).
-2. Add more fund data fields (fund size, fee rate, Sharpe/Calmar ratio, manager tenure).
+1. **Re-sync fund pool** to populate `fund_holdings` with real weight data and the new fund metadata fields:
+   ```bash
+   curl -X POST http://127.0.0.1:8000/api/funds/sync \
+     -H "Content-Type: application/json" \
+     -d '{"limit": 3000, "enrich_limit": 100}'
+   ```
+2. Same-category score normalization for more defensible within-group rankings.
 3. Start Feishu chatbot integration — the React workflow and evidence fields are now stable.
-4. Same-category score normalization for more defensible within-group rankings.
-5. Multi-agent orchestration (event logs, agent contracts) → LangGraph state machine.
-6. Human review workflow with persistent audit trail.
+4. Multi-agent orchestration (event logs, agent contracts) → LangGraph state machine.
+5. Human review workflow with persistent audit trail.
+6. Sharpe/Calmar ratio data — requires additional data source (e.g., Tiantian Fund API).

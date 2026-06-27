@@ -159,6 +159,7 @@
     "theme_relevance_multiplier": 45,
     "holding_match_max": 25,
     "holding_match_multiplier": 0.6,
+    "holding_match_fallback_multiplier": 0.5,
     "positioning_match_max": 15,
     "positioning_match_per_hit": 5,
     "compliance_penalty_high_risk_for_conservative": -2,
@@ -202,7 +203,14 @@
       "max_drawdown": 12,
       "manager": 6,
       "top_holdings": 6,
-      "industry_allocation": 6
+      "industry_allocation": 6,
+      "fund_size": 3,
+      "inception_date": 3,
+      "management_fee": 3,
+      "official_risk_level": 5,
+      "manager_tenure": 3,
+      "sharpe_ratio": 5,
+      "calmar_ratio": 5
     }
   },
   "industry_keyword_rules": [

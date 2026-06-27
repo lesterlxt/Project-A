@@ -21,6 +21,28 @@ from app.services.stock_industry_mapper import StockIndustryMapper
 DB_PATH = Path(__file__).resolve().parents[1] / "data" / "funds.db"
 LOGGER = logging.getLogger(__name__)
 
+# ------------------------------------------------------------------
+# fund_holdings table DDL (kept DRY with _write_sqlite / _ensure_column)
+# ------------------------------------------------------------------
+FUND_HOLDINGS_DDL = """
+CREATE TABLE IF NOT EXISTS fund_holdings (
+    fund_code TEXT NOT NULL,
+    stock_code TEXT NOT NULL,
+    stock_name TEXT,
+    holding_weight REAL,
+    report_date TEXT,
+    source TEXT,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (fund_code, stock_code, report_date)
+)
+"""
+
+FUND_HOLDINGS_INDEXES = [
+    "CREATE INDEX IF NOT EXISTS idx_holdings_fund ON fund_holdings(fund_code)",
+    "CREATE INDEX IF NOT EXISTS idx_holdings_stock ON fund_holdings(stock_code)",
+    "CREATE INDEX IF NOT EXISTS idx_holdings_fund_report ON fund_holdings(fund_code, report_date)",
+]
+
 
 @dataclass(frozen=True)
 class FundCandidate:
@@ -141,9 +163,20 @@ class EastmoneyFundDataProvider:
             "volatility": "",
             "max_drawdown": "",
             "risk_level": risk_level,
+            "risk_level_source": "inferred_from_fund_type",
             "suitable_clients": _suitable_clients_for_risk(risk_level),
             "latest_nav": "",
             "estimated_growth": "",
+            "fund_size": "",
+            "inception_date": "",
+            "management_fee": "",
+            "custody_fee": "",
+            "sales_service_fee": "",
+            "official_risk_level": "",
+            "manager_tenure": "",
+            "sharpe_ratio": "",
+            "calmar_ratio": "",
+            "peer_rank": "",
             "data_source": self.source,
             "data_updated_at": now,
             "is_enriched": "0",
@@ -243,10 +276,28 @@ class EastmoneyFundDataProvider:
                 str(item.get("name", "")).strip() for item in manager_payload if item.get("name")
             ) or "未知"
 
-        # Top holdings (stock codes)
-        stock_codes = self._extract_json_var(details, "stockCodesNew")
-        if not isinstance(stock_codes, list):
-            stock_codes = []
+        # Manager tenure (from first manager record)
+        manager_tenure = ""
+        if isinstance(manager_payload, list) and manager_payload:
+            tenure_raw = manager_payload[0].get("tenureDays", "") if isinstance(manager_payload[0], dict) else ""
+            if tenure_raw:
+                days = int(tenure_raw)
+                years = days / 365.25
+                manager_tenure = f"{years:.1f}年"
+
+        # Top holdings (stock codes) — extract code + name + weight from Data_fundSharesPositions
+        stock_codes_raw = self._extract_json_var(details, "stockCodesNew")
+        if not isinstance(stock_codes_raw, list):
+            stock_codes_raw = []
+
+        # Extract holding weights from Data_fundSharesPositions
+        holdings_data = self._extract_holdings(details, candidate.code)
+
+        # Derive stock codes list from holdings if available, else fall back to stockCodesNew
+        if holdings_data:
+            stock_codes = [h["stock_code"] for h in holdings_data]
+        else:
+            stock_codes = [str(item) for item in stock_codes_raw[:10]]
 
         # Returns
         one_year_return = self._extract_string_var(details, "syl_1n")
@@ -257,17 +308,45 @@ class EastmoneyFundDataProvider:
             net_worth if isinstance(net_worth, list) else []
         )
 
-        # Prefer real stock-code industry mappings when the optional mapping table is available.
-        industry_allocation, industry_allocation_source = self._derive_industry_allocation(
-            candidate.name, candidate.fund_type, stock_codes
-        )
+        # Fund metadata fields
+        fund_size = self._extract_fund_meta(details, "Data_fundScale")
+        inception_date = self._extract_fund_meta(details, "clrq")
+        management_fee = self._extract_fund_meta(details, "fund_Rate")
+        custody_fee = self._extract_fund_meta(details, "fund_TrusteeRate")
+
+        # Official risk level from F10 detail if available
+        official_risk_level = self._extract_official_risk_level(details)
 
         # Asset allocation (stock/bond/cash ratio)
         asset_alloc = self._extract_json_var(details, "Data_assetAllocation")
         stock_ratio = self._latest_stock_ratio(asset_alloc)
 
-        # Risk level
+        # Risk level with source tracking
         risk_level = _derive_risk_level(candidate.fund_type)
+        risk_level_source = "inferred_from_fund_type"
+        if official_risk_level:
+            risk_level = official_risk_level
+            risk_level_source = "official"
+
+        # Prefer weight-based industry allocation when holdings data exists
+        industry_allocation: dict[str, float] = {}
+        industry_allocation_source = ""
+        if holdings_data:
+            industry_allocation, industry_allocation_source = (
+                self.stock_industry_mapper.aggregate_by_holding_weight(
+                    fund_code=candidate.code,
+                    holdings=holdings_data,
+                )
+            )
+        if not industry_allocation:
+            # Fall back to count-based or keyword-based
+            industry_allocation, industry_allocation_source = self._derive_industry_allocation(
+                candidate.name, candidate.fund_type,
+                [self.stock_industry_mapper._normalize_code(str(item)) for item in stock_codes_raw[:20]],
+            )
+
+        # Write holdings to DB for future use
+        self._write_holdings(candidate.code, holdings_data)
 
         return {
             "fund_code": candidate.code,
@@ -284,10 +363,21 @@ class EastmoneyFundDataProvider:
             "volatility": self._percent(volatility),
             "max_drawdown": self._percent(max_drawdown),
             "risk_level": risk_level,
+            "risk_level_source": risk_level_source,
             "suitable_clients": _suitable_clients_for_risk(risk_level),
             "positioning": self._enriched_positioning(candidate, stock_ratio),
             "latest_nav": quote.get("dwjz", ""),
             "estimated_growth": self._percent(quote.get("gszzl", "")),
+            "fund_size": fund_size,
+            "inception_date": inception_date,
+            "management_fee": management_fee,
+            "custody_fee": custody_fee,
+            "sales_service_fee": "",
+            "official_risk_level": official_risk_level,
+            "manager_tenure": manager_tenure,
+            "sharpe_ratio": "",
+            "calmar_ratio": "",
+            "peer_rank": "",
             "data_updated_at": datetime.now(UTC).isoformat(timespec="seconds"),
             "is_enriched": "1",
         }
@@ -378,6 +468,191 @@ class EastmoneyFundDataProvider:
             max_drawdown = min(max_drawdown, drawdown)
 
         return volatility, max_drawdown
+
+    # ------------------------------------------------------------------
+    # Holdings extraction (fund_holdings table)
+    # ------------------------------------------------------------------
+
+    # Eastmoney F10 fund holdings endpoint (returns HTML table)
+    F10_HOLDINGS_URL = (
+        "https://fundf10.eastmoney.com/FundArchivesDatas.aspx"
+        "?type=jjcc&code={code}&topline=10&year=&month=&rt={rt}"
+    )
+
+    def _extract_holdings(
+        self, details: str, fund_code: str
+    ) -> list[dict[str, str]]:
+        """
+        Extract stock holdings with weights from Eastmoney F10 API.
+
+        Fetches the fund's top-10 stock holdings from the F10 holdings page
+        (FundArchivesDatas.aspx?type=jjcc), parses the HTML table to extract
+        stock_code, stock_name, holding_weight (占净值比例), and report_date.
+
+        Falls back gracefully if the API is unreachable or returns no data.
+        """
+        try:
+            html = self._fetch_f10_holdings(fund_code)
+        except (urllib.error.URLError, TimeoutError, Exception):
+            LOGGER.debug("F10 holdings fetch failed for %s", fund_code)
+            return []
+
+        if not html:
+            return []
+
+        # Extract report date from header: "截止至：<font class='px12'>2026-03-31</font>"
+        report_date = ""
+        date_match = re.search(r"截止至：.*?(\d{4}-\d{2}-\d{2})", html)
+        if date_match:
+            report_date = date_match.group(1)
+
+        # Extract holding rows: each <tr> contains seq, code, name, ..., weight%, ...
+        # Pattern: <tr><td>seq</td><td>...>code</a></td><td class='tol'>...>name</a></td>...<td class='tor'>weight%</td>
+        row_pattern = re.compile(
+            r"<tr><td>\d+</td>"
+            r"<td>.*?>(.*?)</a></td>"
+            r"<td[^>]*>.*?>(.*?)</a></td>"
+            r"(?:.*?<td[^>]*>.*?</td>){3}"  # skip price, change%, nav links
+            r"<td[^>]*>(.*?)%</td>",
+            re.DOTALL,
+        )
+
+        holdings: list[dict[str, str]] = []
+        for match in row_pattern.finditer(html):
+            stock_code = match.group(1).strip()
+            stock_name = match.group(2).strip()
+            weight_str = match.group(3).strip()
+
+            if not stock_code:
+                continue
+
+            normalized = self.stock_industry_mapper._normalize_code(stock_code)
+            if not normalized or len(normalized) < 6:
+                continue
+
+            weight = None
+            try:
+                weight = float(weight_str)
+            except (ValueError, TypeError):
+                pass
+
+            holdings.append({
+                "stock_code": normalized,
+                "stock_name": stock_name or normalized,
+                "holding_weight": str(weight) if weight is not None else "",
+                "report_date": report_date,
+                "source": "Eastmoney F10 FundArchivesDatas.aspx?type=jjcc",
+            })
+
+        return holdings
+
+    def _fetch_f10_holdings(self, code: str) -> str:
+        """Fetch fund holdings HTML from Eastmoney F10."""
+        rt = str(int(datetime.now().timestamp() * 1000))
+        url = self.F10_HOLDINGS_URL.format(code=code, rt=rt)
+        try:
+            request = urllib.request.Request(
+                url,
+                headers={
+                    "User-Agent": "Mozilla/5.0 ProjectA/0.1",
+                    "Accept": "*/*",
+                    "Referer": "https://fundf10.eastmoney.com/",
+                },
+            )
+            with urllib.request.urlopen(request, timeout=20) as response:
+                raw = response.read().decode("utf-8", errors="replace")
+                # Extract content from: var apidata={ content:"...",arryear:...};
+                prefix = 'content:"'
+                start = raw.find(prefix)
+                if start < 0:
+                    return raw
+                start += len(prefix)
+                # Find the closing quote before the next field (",arryear or ",curyear)
+                end_match = re.search(r'",\s*(?:arryear|curyear)', raw[start:])
+                if end_match:
+                    end = start + end_match.start()
+                else:
+                    return ""
+                html = raw[start:end]
+                # JS string unescaping
+                html = html.replace('\\"', '"').replace("\\\\", "\\").replace("\\/", "/")
+                return html
+        except (urllib.error.URLError, TimeoutError):
+            return ""
+
+    def _write_holdings(
+        self, fund_code: str, holdings: list[dict[str, str]]
+    ) -> None:
+        """Persist fund holdings to the fund_holdings table."""
+        if not holdings:
+            return
+
+        now = datetime.now(UTC).isoformat(timespec="seconds")
+        with sqlite3.connect(DB_PATH) as connection:
+            # Ensure table exists (may have been created by _write_sqlite already)
+            connection.execute(FUND_HOLDINGS_DDL)
+            for index_ddl in FUND_HOLDINGS_INDEXES:
+                try:
+                    connection.execute(index_ddl)
+                except sqlite3.OperationalError:
+                    pass
+
+            # Delete old holdings for this fund to prevent stale/encoding-broken rows
+            connection.execute(
+                "DELETE FROM fund_holdings WHERE fund_code = ?",
+                (fund_code,),
+            )
+
+            # Insert fresh holdings
+            for h in holdings:
+                connection.execute(
+                    """
+                    INSERT INTO fund_holdings
+                        (fund_code, stock_code, stock_name, holding_weight, report_date, source, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        fund_code,
+                        h["stock_code"],
+                        h.get("stock_name", h["stock_code"]),
+                        float(h["holding_weight"]) if h.get("holding_weight") else None,
+                        h.get("report_date", ""),
+                        h.get("source", "Eastmoney F10"),
+                        now,
+                    ),
+                )
+
+    # ------------------------------------------------------------------
+    # Fund metadata extraction
+    # ------------------------------------------------------------------
+
+    def _extract_fund_meta(self, details: str, var_name: str) -> str:
+        """Extract a fund metadata field by variable name."""
+        # Try string var first
+        value = self._extract_string_var(details, var_name)
+        if value:
+            return value
+        # Try JSON var
+        json_val = self._extract_json_var(details, var_name)
+        if isinstance(json_val, str):
+            return json_val
+        if isinstance(json_val, (int, float)):
+            return str(json_val)
+        return ""
+
+    def _extract_official_risk_level(self, details: str) -> str:
+        """Try to extract official risk level from fund detail data."""
+        # In pingzhongdata, risk level may appear as a data variable
+        risk = self._extract_string_var(details, "Data_riskLevel")
+        if risk:
+            return risk
+        # Try JSON-based risk info
+        risk_json = self._extract_json_var(details, "Data_fundRiskInfo")
+        if isinstance(risk_json, dict):
+            level = risk_json.get("riskLevel", "") or risk_json.get("risk_level", "")
+            if level:
+                return str(level)
+        return ""
 
     # ------------------------------------------------------------------
     # Industry allocation derivation
@@ -476,9 +751,20 @@ class EastmoneyFundDataProvider:
             "volatility",
             "max_drawdown",
             "risk_level",
+            "risk_level_source",
             "suitable_clients",
             "latest_nav",
             "estimated_growth",
+            "fund_size",
+            "inception_date",
+            "management_fee",
+            "custody_fee",
+            "sales_service_fee",
+            "official_risk_level",
+            "manager_tenure",
+            "sharpe_ratio",
+            "calmar_ratio",
+            "peer_rank",
             "data_source",
             "data_updated_at",
             "is_enriched",
@@ -500,16 +786,45 @@ class EastmoneyFundDataProvider:
                     volatility TEXT,
                     max_drawdown TEXT,
                     risk_level TEXT,
+                    risk_level_source TEXT DEFAULT 'inferred_from_fund_type',
                     suitable_clients TEXT,
                     latest_nav TEXT,
                     estimated_growth TEXT,
+                    fund_size TEXT,
+                    inception_date TEXT,
+                    management_fee TEXT,
+                    custody_fee TEXT,
+                    sales_service_fee TEXT,
+                    official_risk_level TEXT,
+                    manager_tenure TEXT,
+                    sharpe_ratio TEXT,
+                    calmar_ratio TEXT,
+                    peer_rank TEXT,
                     data_source TEXT,
                     data_updated_at TEXT,
                     is_enriched INTEGER DEFAULT 0
                 )
                 """
             )
+            # Ensure all new columns exist for DBs created before this migration
             self._ensure_column(connection, "funds", "industry_allocation_source", "TEXT")
+            self._ensure_column(connection, "funds", "risk_level_source", "TEXT DEFAULT 'inferred_from_fund_type'")
+            self._ensure_column(connection, "funds", "fund_size", "TEXT")
+            self._ensure_column(connection, "funds", "inception_date", "TEXT")
+            self._ensure_column(connection, "funds", "management_fee", "TEXT")
+            self._ensure_column(connection, "funds", "custody_fee", "TEXT")
+            self._ensure_column(connection, "funds", "sales_service_fee", "TEXT")
+            self._ensure_column(connection, "funds", "official_risk_level", "TEXT")
+            self._ensure_column(connection, "funds", "manager_tenure", "TEXT")
+            self._ensure_column(connection, "funds", "sharpe_ratio", "TEXT")
+            self._ensure_column(connection, "funds", "calmar_ratio", "TEXT")
+            self._ensure_column(connection, "funds", "peer_rank", "TEXT")
+
+            # Create fund_holdings table
+            connection.execute(FUND_HOLDINGS_DDL)
+            for index_ddl in FUND_HOLDINGS_INDEXES:
+                connection.execute(index_ddl)
+
             connection.execute("DELETE FROM funds")
             placeholders = ",".join("?" for _ in columns)
             connection.executemany(
@@ -537,17 +852,44 @@ class EastmoneyFundDataProvider:
             "volatility",
             "max_drawdown",
             "risk_level",
+            "risk_level_source",
             "suitable_clients",
             "positioning",
             "latest_nav",
             "estimated_growth",
+            "fund_size",
+            "inception_date",
+            "management_fee",
+            "custody_fee",
+            "sales_service_fee",
+            "official_risk_level",
+            "manager_tenure",
+            "sharpe_ratio",
+            "calmar_ratio",
+            "peer_rank",
             "data_updated_at",
             "is_enriched",
         ]
         set_clause = ",".join(f"{col}=?" for col in enrich_columns)
 
         with sqlite3.connect(DB_PATH) as connection:
-            self._ensure_column(connection, "funds", "industry_allocation_source", "TEXT")
+            # Ensure all new columns exist
+            for col_def in [
+                ("industry_allocation_source", "TEXT"),
+                ("risk_level_source", "TEXT DEFAULT 'inferred_from_fund_type'"),
+                ("fund_size", "TEXT"),
+                ("inception_date", "TEXT"),
+                ("management_fee", "TEXT"),
+                ("custody_fee", "TEXT"),
+                ("sales_service_fee", "TEXT"),
+                ("official_risk_level", "TEXT"),
+                ("manager_tenure", "TEXT"),
+                ("sharpe_ratio", "TEXT"),
+                ("calmar_ratio", "TEXT"),
+                ("peer_rank", "TEXT"),
+            ]:
+                self._ensure_column(connection, "funds", col_def[0], col_def[1])
+
             connection.executemany(
                 f"UPDATE funds SET {set_clause} WHERE fund_code=?",
                 [

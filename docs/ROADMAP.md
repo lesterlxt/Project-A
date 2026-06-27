@@ -103,13 +103,15 @@ Workflow coordinator  -> ReviewOrchestrator
 
 ### P1 Gaps
 
-✅ Most P1 gaps closed:
+✅ All P1 gaps now closed:
 
 - ✅ fund-type bucketed scoring — `FundCategoryAgent` with 7 categories and within-group ranking
 - ✅ real stock-industry mapping data — `StockIndustryImporter` fetches Shenwan classifications from Eastmoney F10 (342 real mappings in DB)
-- ⚠️ holding-weight-based industry exposure — table schema ready (`fund_holdings`), but weight data not yet imported; currently using holding-count aggregation
+- ✅ holding-weight-based industry exposure — `fund_holdings` table created, weight data imported from `Data_fundSharesPositions`; `aggregate_by_holding_weight()` provides weight-based industry allocation; count-based fallback (`mapped_from_holding_count`) only used when weights unavailable
 - ✅ recommendation explanations cite supporting fields — `explanation_points` with field sources
 - ✅ score formulas visible in UI — `/api/options` returns scoring model metadata
+- ✅ extended fund fields — fund_size, inception_date, management_fee, custody_fee, official_risk_level, manager_tenure; Sharpe/Calmar/peer_rank fields added but require additional data source
+- ✅ risk level source tracking — `risk_level_source` distinguishes official vs. inferred_from_fund_type
 
 ### P2 Gaps
 
@@ -188,8 +190,8 @@ Goal: make scores closer to financial product research.
 
 Remaining refinements:
 - ⚠️ same-category score normalization
-- ⚠️ holding-weight-based industry exposure (table schema ready, weight data not yet imported)
-- ⚠️ more official product fields (fund size, fee rate, Sharpe ratio, etc.)
+- ⚠️ Sharpe/Calmar ratio, peer rank data (require additional data source)
+- ⚠️ more official product fields may become available from additional API endpoints
 
 ### Milestone 3: P2 Agent Productization
 

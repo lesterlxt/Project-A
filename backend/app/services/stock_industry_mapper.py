@@ -113,6 +113,11 @@ class StockIndustryMapper:
             return set()
 
     def aggregate_by_holding_count(self, stock_codes: list[str]) -> tuple[dict[str, float], str]:
+        """
+        Count-based industry aggregation (fallback when holding weights are unavailable).
+
+        Source marker: 'mapped_from_holding_count'
+        """
         normalized_codes = [self._normalize_code(code) for code in stock_codes]
         normalized_codes = [code for code in normalized_codes if code]
         if not normalized_codes or not self._table_exists():
@@ -140,7 +145,119 @@ class StockIndustryMapper:
         return {
             str(row[0]): round(int(row[1]) / total * 100, 1)
             for row in rows
-        }, "mapped_from_stock_industry_map"
+        }, "mapped_from_holding_count"
+
+    def aggregate_by_holding_weight(
+        self,
+        fund_code: str = "",
+        holdings: list[dict[str, str]] | None = None,
+    ) -> tuple[dict[str, float], str]:
+        """
+        Weight-based industry aggregation using fund_holdings table.
+
+        Joins fund_holdings with stock_industry_map, sums holding_weight
+        per industry, and returns percentage breakdown.
+
+        If holdings param is provided (from fresh enrichment), use those directly.
+        Otherwise falls back to DB query.
+
+        Source marker: 'mapped_from_holding_weight'
+        """
+        if holdings:
+            return self._aggregate_from_holdings_list(holdings)
+
+        # Fall back to database query
+        if not fund_code or not self._table_exists():
+            return {}, ""
+
+        if not self._holdings_table_exists():
+            return {}, ""
+
+        with sqlite3.connect(DB_PATH) as connection:
+            rows = connection.execute(
+                """
+                SELECT sim.industry, SUM(fh.holding_weight) AS total_weight
+                FROM fund_holdings fh
+                JOIN stock_industry_map sim ON fh.stock_code = sim.stock_code
+                WHERE fh.fund_code = ?
+                  AND sim.industry IS NOT NULL
+                  AND sim.industry != ''
+                  AND COALESCE(sim.source, '') != 'manual_seed'
+                GROUP BY sim.industry
+                ORDER BY total_weight DESC
+                """,
+                (fund_code,),
+            ).fetchall()
+
+        total = sum(float(row[1]) for row in rows if row[1] is not None)
+        if total <= 0:
+            return {}, ""
+
+        return {
+            str(row[0]): round(float(row[1]) / total * 100, 1)
+            for row in rows
+            if row[1] is not None
+        }, "mapped_from_holding_weight"
+
+    def _aggregate_from_holdings_list(
+        self, holdings: list[dict[str, str]]
+    ) -> tuple[dict[str, float], str]:
+        """Aggregate industry allocation from an in-memory holdings list."""
+        if not holdings or not self._table_exists():
+            return {}, ""
+
+        codes = [h["stock_code"] for h in holdings]
+        code_weight: dict[str, float] = {}
+        for h in holdings:
+            w = h.get("holding_weight", "")
+            if w:
+                try:
+                    code_weight[h["stock_code"]] = float(w)
+                except (ValueError, TypeError):
+                    code_weight[h["stock_code"]] = 0.0
+            else:
+                code_weight[h["stock_code"]] = 0.0
+
+        placeholders = ",".join("?" for _ in codes)
+        with sqlite3.connect(DB_PATH) as connection:
+            rows = connection.execute(
+                f"""
+                SELECT stock_code, industry
+                FROM stock_industry_map
+                WHERE stock_code IN ({placeholders})
+                  AND industry IS NOT NULL
+                  AND industry != ''
+                  AND COALESCE(source, '') != 'manual_seed'
+                """,
+                codes,
+            ).fetchall()
+
+        industry_weight: dict[str, float] = {}
+        for stock_code, industry in rows:
+            w = code_weight.get(stock_code, 0)
+            industry_weight[industry] = industry_weight.get(industry, 0) + w
+
+        total = sum(industry_weight.values())
+        if total <= 0:
+            return {}, ""
+
+        return {
+            industry: round(weight / total * 100, 1)
+            for industry, weight in industry_weight.items()
+        }, "mapped_from_holding_weight"
+
+    def _holdings_table_exists(self) -> bool:
+        if not DB_PATH.exists():
+            return False
+        with sqlite3.connect(DB_PATH) as connection:
+            row = connection.execute(
+                """
+                SELECT name
+                FROM sqlite_master
+                WHERE type='table' AND name='fund_holdings'
+                """
+            ).fetchone()
+        return row is not None
 
     def _table_exists(self) -> bool:
         if not DB_PATH.exists():

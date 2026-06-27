@@ -73,11 +73,20 @@ class FundScorer:
             scoring["theme_relevance_max"],
             round(unique_match_ratio * scoring["theme_relevance_multiplier"], 1),
         )
+
+        # holding_match: scale by industry source credibility
+        holding_multiplier = scoring["holding_match_multiplier"]
+        industry_source = self._industry_source(fund)
+        if industry_source == "missing":
+            holding_multiplier = 0.0
+        elif industry_source in ("holding_count_fallback", "inferred"):
+            holding_multiplier *= scoring.get("holding_match_fallback_multiplier", 0.5)
+
         holding_match = min(
             scoring["holding_match_max"],
             round(
                 sum(percent for industry, percent in fund.industry_allocation.items() if industry in hotspot_analysis.industries)
-                * scoring["holding_match_multiplier"],
+                * holding_multiplier,
                 1,
             ),
         )
@@ -137,9 +146,21 @@ class FundScorer:
             volatility=fund.volatility,
             max_drawdown=fund.max_drawdown,
             risk_level=fund.risk_level,
+            risk_level_source=fund.risk_level_source,
             positioning=fund.positioning,
             top_holdings=fund.top_holdings,
             industry_allocation=fund.industry_allocation,
+            industry_allocation_source=fund.industry_allocation_source,
+            fund_size=fund.fund_size,
+            inception_date=fund.inception_date,
+            management_fee=fund.management_fee,
+            custody_fee=fund.custody_fee,
+            sales_service_fee=fund.sales_service_fee,
+            official_risk_level=fund.official_risk_level,
+            manager_tenure=fund.manager_tenure,
+            sharpe_ratio=fund.sharpe_ratio,
+            calmar_ratio=fund.calmar_ratio,
+            peer_rank=fund.peer_rank,
             data_source=fund.data_source,
             data_updated_at=fund.data_updated_at,
             is_enriched=fund.is_enriched,
@@ -190,9 +211,21 @@ class FundScorer:
             volatility=fund.volatility,
             max_drawdown=fund.max_drawdown,
             risk_level=fund.risk_level,
+            risk_level_source=fund.risk_level_source,
             positioning=fund.positioning,
             top_holdings=fund.top_holdings,
             industry_allocation=fund.industry_allocation,
+            industry_allocation_source=fund.industry_allocation_source,
+            fund_size=fund.fund_size,
+            inception_date=fund.inception_date,
+            management_fee=fund.management_fee,
+            custody_fee=fund.custody_fee,
+            sales_service_fee=fund.sales_service_fee,
+            official_risk_level=fund.official_risk_level,
+            manager_tenure=fund.manager_tenure,
+            sharpe_ratio=fund.sharpe_ratio,
+            calmar_ratio=fund.calmar_ratio,
+            peer_rank=fund.peer_rank,
             data_source=fund.data_source,
             data_updated_at=fund.data_updated_at,
             is_enriched=fund.is_enriched,
@@ -247,10 +280,22 @@ class FundScorer:
             "top_holdings": "raw" if fund.top_holdings else "missing",
             "volatility": "calculated" if fund.volatility is not None else "missing",
             "max_drawdown": "calculated" if fund.max_drawdown is not None else "missing",
-            "risk_level": "inferred",
+            "risk_level": fund.risk_level_source if fund.risk_level_source else "inferred",
+            "risk_level_source": "raw" if fund.risk_level_source == "official" else "inferred",
             "suitable_clients": "inferred",
             "positioning": "inferred",
             "industry_allocation": self._industry_source(fund),
+            "industry_allocation_source": self._industry_source(fund),
+            "fund_size": "raw" if fund.fund_size else "missing",
+            "inception_date": "raw" if fund.inception_date else "missing",
+            "management_fee": "raw" if fund.management_fee else "missing",
+            "custody_fee": "raw" if fund.custody_fee else "missing",
+            "sales_service_fee": "raw" if fund.sales_service_fee else "missing",
+            "official_risk_level": "raw" if fund.official_risk_level else "missing",
+            "manager_tenure": "raw" if fund.manager_tenure else "missing",
+            "sharpe_ratio": "raw" if fund.sharpe_ratio else "missing",
+            "calmar_ratio": "raw" if fund.calmar_ratio else "missing",
+            "peer_rank": "raw" if fund.peer_rank else "missing",
             "score": "calculated",
             "reason": "generated",
             "data_quality_score": "calculated",
@@ -258,11 +303,17 @@ class FundScorer:
         }
 
     def _industry_source(self, fund: Fund) -> str:
+        """Map industry_allocation_source to a frontend-friendly provenance label."""
         if not fund.industry_allocation:
             return "missing"
-        if fund.industry_allocation_source == "mapped_from_stock_industry_map":
-            return "mapped"
-        if fund.industry_allocation_source == "keyword_inferred":
+        source = fund.industry_allocation_source
+        if source == "mapped_from_holding_weight":
+            return "mapped_from_holding_weight"
+        if source == "mapped_from_holding_count":
+            return "holding_count_fallback"
+        if source in ("mapped_from_stock_industry_map",):
+            return "holding_count_fallback"
+        if source == "keyword_inferred":
             return "inferred"
         return "inferred"
 
@@ -309,15 +360,27 @@ class FundScorer:
                 f"{name}{value:.0f}%"
                 for name, value in list(fund.industry_allocation.items())[:5]
             )
-            source_text = "持仓代码行业映射" if field_sources["industry_allocation"] == "mapped" else "规则推导"
+            industry_source_label = self._industry_source_label(field_sources["industry_allocation"])
             points.append(
                 ExplanationPoint(
                     label="行业证据",
-                    text=f"行业配置显示：{industries}；来源为{source_text}。",
+                    text=f"行业配置显示：{industries}；来源为{industry_source_label}。",
                     evidence_fields=["industry_allocation", "top_holdings"],
                     source=field_sources["industry_allocation"],
                 )
             )
+
+        # Risk level source explanation
+        risk_source_text = "官方评级" if fund.risk_level_source == "official" else "基金类型推导"
+        risk_source = "raw" if fund.risk_level_source == "official" else "inferred"
+        points.append(
+            ExplanationPoint(
+                label="风险等级来源",
+                text=f"当前风险等级为{fund.risk_level}，来源为{risk_source_text}。",
+                evidence_fields=["risk_level", "risk_level_source", "fund_type"],
+                source=risk_source,
+            )
+        )
 
         risk_parts = []
         if fund.volatility is not None:
@@ -345,6 +408,18 @@ class FundScorer:
             )
         )
         return points
+
+    def _industry_source_label(self, source: str) -> str:
+        """Human-readable label for industry allocation source."""
+        if source == "mapped_from_holding_weight":
+            return "基于持仓权重聚合"
+        if source == "holding_count_fallback":
+            return "基于持仓股票数量聚合，仅作参考"
+        if source == "inferred":
+            return "基于基金名称/类型关键词推导，仅作弱参考"
+        if source == "missing":
+            return "暂无行业数据"
+        return source
 
     def _performance_score(self, fund: Fund) -> float:
         if fund.volatility is None or fund.max_drawdown is None or fund.one_year_return is None:

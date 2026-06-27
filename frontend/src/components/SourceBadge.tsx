@@ -5,6 +5,8 @@ const sourceLabels: Record<string, string> = {
   calculated: "系统计算",
   inferred: "规则推导",
   mapped: "持仓映射",
+  mapped_from_holding_weight: "持仓权重映射",
+  holding_count_fallback: "持仓数量映射，仅供参考",
   generated: "AI生成",
   missing: "暂无数据",
 };
@@ -14,6 +16,8 @@ const variants: Record<string, "success" | "info" | "warning" | "muted"> = {
   calculated: "info",
   inferred: "warning",
   mapped: "success",
+  mapped_from_holding_weight: "success",
+  holding_count_fallback: "warning",
   generated: "info",
   missing: "muted",
 };
