@@ -61,8 +61,8 @@ class TodayHotspotsResponse(BaseModel):
 
 
 class FundSyncRequest(BaseModel):
-    limit: int = Field(default=3000, ge=1, le=5000)
-    enrich_limit: int = Field(default=80, ge=0, le=500)
+    limit: int = Field(default=1000, ge=1, le=5000)
+    enrich_limit: int = Field(default=500, ge=0, le=500)
     keywords: list[str] = Field(default_factory=list)
 
 

@@ -92,7 +92,7 @@ Windows 电脑需要提前安装 Python 3.11 或更新版本。安装 Python 时
 ```bash
 curl -X POST http://127.0.0.1:8000/api/funds/sync \
   -H "Content-Type: application/json" \
-  -d '{"limit": 3000, "enrich_limit": 100}'
+  -d '{"limit": 1000, "enrich_limit": 500, "keywords": ["易方达"]}'
 ```
 
 如果启动脚本使用的不是 `8000` 端口，把命令里的端口改成终端显示的端口。

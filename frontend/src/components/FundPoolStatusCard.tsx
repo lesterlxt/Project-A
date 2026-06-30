@@ -45,7 +45,7 @@ export function FundPoolStatusCard({
       <CardContent className="space-y-4">
         {/* Count */}
         <div className="flex items-end justify-between">
-          <div className="text-caption text-muted-foreground">本地候选基金</div>
+          <div className="text-caption text-muted-foreground">易方达候选基金</div>
           <span className="text-data tabular-nums text-foreground">
             {(status?.total_count ?? 0).toLocaleString("zh-CN")}
           </span>
@@ -56,7 +56,7 @@ export function FundPoolStatusCard({
           <div className="flex justify-between">
             <span>来源</span>
             <span className="text-foreground/70">
-              {status?.source || "东方财富 / 天天基金"}
+              {status?.source || "易方达自有基金池"}
             </span>
           </div>
           <div className="flex justify-between">
@@ -82,7 +82,7 @@ export function FundPoolStatusCard({
             size={14}
             className={syncing ? "animate-spin" : ""}
           />
-          {syncing ? "同步中..." : "同步真实基金池"}
+          {syncing ? "同步中..." : "同步易方达基金池"}
         </Button>
 
         {message && (

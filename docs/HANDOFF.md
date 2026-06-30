@@ -42,7 +42,8 @@ Added fund metadata fields and risk level provenance.
 - removed several AI-demo-style cards from the pre-analysis state;
 - shifted the visual theme toward an E Fund-style blue and reduced heavy black text;
 - added a real-data market and fund allocation reference table;
-- added a read-only E Fund official fund supermarket sample module;
+- added an E Fund official fund supermarket reference module;
+- narrowed the campaign candidate universe to E Fund-owned products only;
 - hid the frontend "enhanced 99" implementation metric;
 - added a business-facing fund-pool screening explanation;
 - moved scoring formula metadata into backend `/api/options`;
@@ -66,14 +67,15 @@ fund.eastmoney.com/js/fundcode_search.js
 fund.eastmoney.com/pingzhongdata/{fund_code}.js
 fundgz.1234567.com.cn/js/{fund_code}.js
 local cache: backend/app/data/funds.db
+fund universe: 易方达自有基金池
 ```
 
 Default screening logic:
 
 ```text
 read public fund codes
--> apply configured theme keywords from recommendation_rules.json
--> keep first 3,000 matching funds in SQLite
+-> force fund names beginning with 易方达
+-> keep matching E Fund-owned products in SQLite
 -> enrich details in backend for manager, returns, holdings, and risk level
 ```
 
@@ -177,7 +179,7 @@ Best next steps:
    ```bash
    curl -X POST http://127.0.0.1:8000/api/funds/sync \
      -H "Content-Type: application/json" \
-     -d '{"limit": 3000, "enrich_limit": 100}'
+     -d '{"limit": 1000, "enrich_limit": 500, "keywords": ["易方达"]}'
    ```
 2. Same-category score normalization for more defensible within-group rankings.
 3. Start Feishu chatbot integration — the React workflow and evidence fields are now stable.

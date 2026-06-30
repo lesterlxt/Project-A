@@ -108,7 +108,7 @@ function AnalysisConfigPreview({
     [
       "基金类型",
       fundTypeFilter === "全部"
-        ? "全市场公募基金池"
+        ? "易方达自有基金池"
         : fundTypeFilter,
     ],
     ["候选数量", `${topK} 只`],
@@ -232,7 +232,7 @@ function FundPoolStructurePanel({
       <CardHeader className="pb-3">
         <CardTitle>
           <PieChart size={17} className="text-primary" />
-          基金池结构
+          易方达基金池结构
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -242,7 +242,7 @@ function FundPoolStructurePanel({
             items={
               summary?.fund_type_distribution ?? []
             }
-            emptyText="暂无基金类型统计，请先同步真实基金池。"
+            emptyText="暂无基金类型统计，请先同步易方达基金池。"
             color="primary"
           />
           <DistributionList
@@ -250,7 +250,7 @@ function FundPoolStructurePanel({
             items={
               summary?.risk_level_distribution ?? []
             }
-            emptyText="暂无风险等级统计，请先同步真实基金池。"
+            emptyText="暂无风险等级统计，请先同步易方达基金池。"
             color="gold"
           />
         </div>
@@ -314,7 +314,7 @@ function ComplianceReminder() {
         分析边界
       </div>
       <p className="text-caption leading-relaxed text-muted-foreground">
-        候选基金不等于投资建议，AI 生成内容需要人工复核；市场行情和基金池统计均来自公开接口，接口不可用时不展示编造数据。
+        候选基金限定为易方达自有产品，不等于投资建议，AI 生成内容需要人工复核；市场行情和基金池统计均来自公开接口，接口不可用时不展示编造数据。
       </p>
     </div>
   );

@@ -129,9 +129,9 @@ Market data refresh changed from 30s to 5 minutes.
 
 `/api/market/overview` returns the dashboard market reference table. Current quotes come from Eastmoney, A-share one-month performance uses Tencent daily kline, and overseas/history fallbacks use Yahoo Finance chart data. The frontend does not mock unavailable market values.
 
-`/api/efunds/supermarket` returns a small read-only sample from the E Fund official fund supermarket page. The backend service has try/catch timeout handling: HTTP failures return empty items, and the frontend shows "data not available" instead of crashing. It is shown only as official product-page context in the pre-analysis dashboard; the UI intentionally does not show purchase/subscription buttons.
+`/api/efunds/supermarket` returns a small read-only sample from the E Fund official fund supermarket page. The backend service has try/catch timeout handling: HTTP failures return empty items, and the frontend shows "data not available" instead of crashing. It is shown as official product-page context in the pre-analysis dashboard; the UI intentionally does not show purchase/subscription buttons.
 
-Fund-pool sync currently keeps the implementation detail of "enhanced count" in the backend logs only. The frontend explains the business-facing screening logic instead: read public fund codes, apply configured theme keywords, and keep the first 3,000 matching funds as the local SQLite candidate pool.
+Fund-pool sync currently keeps the implementation detail of "enhanced count" in the backend logs only. The business rule is now E Fund-only: read public fund codes, force the universe to fund names beginning with "易方达", and keep the matching products as the local SQLite candidate pool. Theme keywords are retained only as positioning/scoring tags, not as the fund-universe gate.
 
 Backend:
 
@@ -179,9 +179,9 @@ backend/app/data/funds.db
 Local snapshot from prior review:
 
 ```text
-total funds: 3000
-enriched funds: 99
-latest data_updated_at: 2026-06-24T11:43:28+00:00
+total funds: 789
+enriched funds: 229
+fund universe: 易方达自有基金池
 ```
 
 Important deletions:

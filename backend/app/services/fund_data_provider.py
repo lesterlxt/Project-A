@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from app.schemas import FundSyncResponse
+from app.services.fund_universe import FUND_COMPANY_PREFIX, FUND_UNIVERSE_LABEL, is_in_fund_universe
 from app.services.rule_config import load_rule_config
 from app.services.stock_industry_importer import StockIndustryImporter
 from app.services.stock_industry_mapper import StockIndustryMapper
@@ -62,7 +63,7 @@ class FundDataProviderError(RuntimeError):
 
 
 class EastmoneyFundDataProvider:
-    source = "Eastmoney fundcode_search.js + pingzhongdata + fundgz"
+    source = f"{FUND_UNIVERSE_LABEL} / Eastmoney fundcode_search.js + pingzhongdata + fundgz"
 
     def __init__(self) -> None:
         self.stock_industry_mapper = StockIndustryMapper()
@@ -71,17 +72,22 @@ class EastmoneyFundDataProvider:
     def sync(self, *, limit: int, enrich_limit: int, keywords: list[str]) -> FundSyncResponse:
         """
         Two-phase sync:
-          1. Fast bulk insert — filter candidates by keywords, write 3000+ base rows to SQLite.
+          1. Fast bulk insert — keep the E Fund universe and write base rows to SQLite.
           2. Parallel enrichment — fetch per-fund detail/quote for the top N funds in a thread pool.
         """
         default_keywords = load_rule_config().fund_sync["default_keywords"]
         active_keywords = [item.strip() for item in keywords if item.strip()] or default_keywords
         candidates = self._fetch_candidates()
-        filtered = self._filter_candidates(candidates, active_keywords)
+        universe_candidates = [
+            candidate for candidate in candidates if is_in_fund_universe(candidate.name)
+        ]
+        filtered = self._filter_candidates(universe_candidates, active_keywords)
         selected = filtered[:limit]
 
         if not selected:
-            raise FundDataProviderError("No real fund candidates matched the provided keywords")
+            raise FundDataProviderError(
+                f"No {FUND_COMPANY_PREFIX} fund candidates matched the provided keywords"
+            )
 
         # ---- Phase 1: bulk insert base rows (fast, no per-fund HTTP) ----
         base_rows = [self._base_row(candidate) for candidate in selected]
@@ -115,7 +121,7 @@ class EastmoneyFundDataProvider:
             keywords=active_keywords,
             updated_at=datetime.now(UTC).isoformat(timespec="seconds"),
             message=(
-                f"SQLite 基金池已更新：{len(selected)} 只基础基金，"
+                f"SQLite {FUND_UNIVERSE_LABEL}已更新：{len(selected)} 只基础基金，"
                 f"{enriched_count} 只已增强（经理/收益/持仓/风险等级）。"
                 + (f" 已为 {industry_imported} 只持仓股票同步申万行业分类。" if industry_imported else "")
             ),
@@ -185,7 +191,8 @@ class EastmoneyFundDataProvider:
     def _positioning(self, candidate: FundCandidate) -> list[str]:
         tags = [candidate.fund_type]
         text = f"{candidate.name} {candidate.fund_type}"
-        for keyword in load_rule_config().fund_sync["default_keywords"]:
+        keywords = load_rule_config().fund_sync.get("positioning_keywords", [])
+        for keyword in keywords:
             if keyword.lower() in text.lower():
                 tags.append(keyword)
         return list(dict.fromkeys(tags))

@@ -440,7 +440,7 @@ export function CampaignWorkbench() {
               <p className="max-w-3xl text-body text-muted-foreground">
                 {showResult
                   ? `${result.hotspot_analysis.hotspot} · ${result.channel_strategy.channel} · ${riskPreference} · 候选 ${result.recommended_funds.length} 只`
-                  : "基于公开行情、热点新闻和本地基金池，生成候选基金、渠道文案和合规检查结果。"}
+                  : "基于公开行情、热点新闻和易方达自有基金池，生成候选基金、渠道文案和合规检查结果。"}
               </p>
             </div>
 

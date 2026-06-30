@@ -9,21 +9,29 @@
     "fund_type_filters": ["全部", "权益", "指数", "ETF联接", "固收+", "红利低波"]
   },
   "fund_sync": {
-    "default_limit": 3000,
-    "default_enrich_limit": 100,
+    "default_limit": 1000,
+    "default_enrich_limit": 500,
     "default_keywords": [
+      "易方达"
+    ],
+    "positioning_keywords": [
       "AI",
+      "人工智能",
       "科技",
       "半导体",
+      "芯片",
       "算力",
       "机器人",
       "创新药",
       "医药",
+      "医疗",
       "红利",
+      "高股息",
       "低波",
       "储能",
       "电力",
       "新能源",
+      "光伏",
       "军工",
       "消费",
       "银行",

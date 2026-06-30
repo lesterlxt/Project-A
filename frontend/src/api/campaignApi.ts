@@ -500,8 +500,8 @@ export async function syncRealFunds(options?: {
   keywords?: string[];
 }): Promise<FundSyncResponse> {
   const {
-    limit = 3000,
-    enrichLimit = 100,
+    limit = 1000,
+    enrichLimit = 500,
     keywords = [],
   } = options ?? {};
 

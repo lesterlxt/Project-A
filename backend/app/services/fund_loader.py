@@ -2,6 +2,8 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.services.fund_universe import FUND_UNIVERSE_LABEL, is_in_fund_universe
+
 
 DB_PATH = Path(__file__).resolve().parents[1] / "data" / "funds.db"
 
@@ -117,7 +119,11 @@ class FundLoader:
                 FROM funds
                 """
             ).fetchall()
-        return [self._row_to_fund(dict(row)) for row in rows]
+        return [
+            fund
+            for fund in (self._row_to_fund(dict(row)) for row in rows)
+            if is_in_fund_universe(fund.fund_name)
+        ]
 
     def status(self) -> dict[str, str | int | bool | None]:
         if not DB_PATH.exists():
@@ -141,13 +147,14 @@ class FundLoader:
                     MAX(data_updated_at) AS latest_updated_at,
                     MAX(data_source) AS source
                 FROM funds
+                WHERE fund_name LIKE '易方达%'
                 """
             ).fetchone()
 
         return {
             "available": True,
             "storage": "SQLite",
-            "source": row["source"] or "",
+            "source": row["source"] or FUND_UNIVERSE_LABEL,
             "total_count": int(row["total_count"] or 0),
             "enriched_count": int(row["enriched_count"] or 0),
             "latest_updated_at": row["latest_updated_at"],
@@ -174,12 +181,14 @@ class FundLoader:
                     COALESCE(SUM(is_enriched), 0) AS enriched_count,
                     MAX(data_source) AS source
                 FROM funds
+                WHERE fund_name LIKE '易方达%'
                 """
             ).fetchone()
             fund_type_rows = connection.execute(
                 """
                 SELECT COALESCE(NULLIF(fund_type, ''), '未知') AS label, COUNT(*) AS count
                 FROM funds
+                WHERE fund_name LIKE '易方达%'
                 GROUP BY COALESCE(NULLIF(fund_type, ''), '未知')
                 ORDER BY count DESC
                 LIMIT 8
@@ -189,6 +198,7 @@ class FundLoader:
                 """
                 SELECT COALESCE(NULLIF(risk_level, ''), '未知') AS label, COUNT(*) AS count
                 FROM funds
+                WHERE fund_name LIKE '易方达%'
                 GROUP BY COALESCE(NULLIF(risk_level, ''), '未知')
                 ORDER BY label
                 """
@@ -196,7 +206,7 @@ class FundLoader:
 
         return {
             "available": True,
-            "source": status_row["source"] or "",
+            "source": status_row["source"] or FUND_UNIVERSE_LABEL,
             "total_count": int(status_row["total_count"] or 0),
             "enriched_count": int(status_row["enriched_count"] or 0),
             "fund_type_distribution": [
