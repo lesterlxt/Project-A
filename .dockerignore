@@ -1,0 +1,11 @@
+.git
+.env
+env
+.demo-venv
+.DS_Store
+__pycache__/
+*.pyc
+frontend/node_modules/
+frontend/dist/
+dist/
+.DeepSeek2Claude.txt

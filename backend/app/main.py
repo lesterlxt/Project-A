@@ -2,10 +2,12 @@ import json
 import os
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.agents.fund_data_agent import FundDataAgent
 from app.agents.hotspot_agent import HotspotAgent
@@ -75,6 +77,9 @@ fund_data_agent = FundDataAgent()
 market_data_service = MarketDataService()
 efund_supermarket_service = EFundSupermarketService()
 stock_industry_importer = StockIndustryImporter()
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
+FRONTEND_INDEX = FRONTEND_DIST / "index.html"
 
 
 @app.get("/api/health")
@@ -220,3 +225,23 @@ async def feishu_webhook(request: dict, background_tasks=None):
 
     # For now, webhook mode is not the primary path
     return {"status": "ok", "message": "WebSocket mode is recommended for local dev."}
+
+
+# ── Demo frontend hosting ─────────────────────────────────────────────
+#
+# The packaged demo ships with frontend/dist and runs as a single FastAPI app.
+# API routes stay under /api; everything else falls through to the React SPA.
+if (FRONTEND_DIST / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+def serve_frontend(full_path: str):
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="API route not found")
+    if not FRONTEND_INDEX.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="frontend/dist is missing. Run `npm run build` in frontend first.",
+        )
+    return FileResponse(FRONTEND_INDEX)

@@ -6,4 +6,5 @@ dist/
 .env
 env
 *.db
+!backend/app/data/funds.db
 .DeepSeek2Claude.txt

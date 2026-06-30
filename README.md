@@ -214,6 +214,20 @@ cp frontend/.env.example frontend/.env
 - React 工作台: http://127.0.0.1:5173
 - FastAPI Swagger: http://127.0.0.1:8000/docs
 
+### 本地演示包
+
+如果需要把项目交给不熟悉前后端开发的人做答辩演示，可以生成一个单服务演示包：
+
+```bash
+./scripts/build_demo_package.sh
+```
+
+脚本会重新构建前端，把 `frontend/dist`、后端代码、当前本地 `backend/app/data/funds.db`、答辩材料、macOS/Windows 启动脚本和朋友版说明打进 `dist/Project-A-demo-*.zip`。演示包不包含根目录 `.env`；完整 AI 分析需要按 `README_FOR_DEMO.md` 配置 DeepSeek key。
+
+### 公网部署
+
+如果希望答辩同学只打开一个网址，可以用 Render 部署。仓库已提供 `Dockerfile` 和 `render.yaml`，部署步骤见 `docs/DEPLOY_RENDER.md`。线上环境变量里需要配置 `DEEPSEEK_API_KEY`。
+
 ### 飞书 Chatbot（可选）
 
 在飞书开发者后台创建企业自建应用，开启 Bot 能力，在 `.env` 添加：
