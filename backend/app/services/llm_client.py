@@ -30,7 +30,7 @@ def _load_env_file(path: Path) -> dict[str, str]:
 
 def _env_value(name: str, default: str = "") -> str:
     if os.getenv(name):
-        return os.getenv(name, "")
+        return os.getenv(name, "").strip()
 
     for path in (PROJECT_ROOT / "env", PROJECT_ROOT / ".env", PROJECT_ROOT / "backend" / ".env"):
         values = _load_env_file(path)
