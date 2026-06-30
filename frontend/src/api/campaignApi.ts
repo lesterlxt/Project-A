@@ -325,6 +325,23 @@ export function runCampaignStream(
   onError: (error: Error) => void,
 ): AbortController {
   const controller = new AbortController();
+  let settled = false;
+
+  async function completeFromSyncFallback(originalError?: Error) {
+    if (settled || controller.signal.aborted) return;
+    try {
+      const fallback = await runCampaign(request);
+      settled = true;
+      onComplete(fallback);
+    } catch (fallbackError) {
+      settled = true;
+      onError(
+        fallbackError instanceof Error
+          ? fallbackError
+          : originalError ?? new Error("分析未返回有效结果"),
+      );
+    }
+  }
 
   (async () => {
     try {
@@ -366,11 +383,12 @@ export function runCampaignStream(
               if (parsed.status && (parsed.status === "completed" || parsed.status === "partial" || parsed.status === "failed")) {
                 const final = parsed as CampaignStreamResponse;
                 if (final.status === "failed") {
-                  onError(new Error(final.error || "分析失败"));
+                  await completeFromSyncFallback(new Error(final.error || "分析失败"));
                 } else if (final.result) {
+                  settled = true;
                   onComplete(final.result);
                 } else {
-                  onError(new Error("分析未返回有效结果"));
+                  await completeFromSyncFallback(new Error("分析未返回有效结果"));
                 }
                 return;
               }
@@ -389,6 +407,7 @@ export function runCampaignStream(
         try {
           const parsed = JSON.parse(buffer.slice(6));
           if (parsed.status && parsed.result) {
+            settled = true;
             onComplete(parsed.result as CampaignResponse);
             return;
           }
@@ -396,9 +415,13 @@ export function runCampaignStream(
           // ignore
         }
       }
+
+      await completeFromSyncFallback(new Error("分析未返回有效结果"));
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
-      onError(err instanceof Error ? err : new Error("流式请求失败"));
+      await completeFromSyncFallback(
+        err instanceof Error ? err : new Error("流式请求失败"),
+      );
     }
   })();
 

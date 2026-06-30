@@ -399,25 +399,29 @@ class GraphOrchestrator:
         if error:
             yield CampaignStreamResponse(
                 status="partial" if chunk.get("hotspot_analysis") else "failed",
-                result=self._build_response(chunk) if chunk.get("hotspot_analysis") else None,
+                result=self._build_response(chunk, excluded_limit=20) if chunk.get("hotspot_analysis") else None,
                 error=error,
                 events=[AgentEvent(**e) for e in chunk.get("events", [])],
             ).model_dump()
         else:
             yield CampaignStreamResponse(
                 status="completed",
-                result=self._build_response(chunk),
+                result=self._build_response(chunk, excluded_limit=20),
                 events=[AgentEvent(**e) for e in chunk.get("events", [])],
             ).model_dump()
 
-    def _build_response(self, final: dict) -> CampaignResponse:
+    def _build_response(self, final: dict, excluded_limit: int | None = None) -> CampaignResponse:
+        excluded_funds = final.get("excluded_fund_items") or []
+        if excluded_limit is not None:
+            excluded_funds = excluded_funds[:excluded_limit]
+
         return CampaignResponse(
             hotspot_analysis=final.get("hotspot_analysis") or HotspotAnalysisResponse(hotspot=""),
             channel_strategy=final.get("channel_strategy") or ChannelStrategy(
                 channel="", client_profile=[], messaging_focus=[], forbidden_angles=[], strategy_summary="",
             ),
             recommended_funds=final.get("recommended_funds") or [],
-            excluded_funds=final.get("excluded_fund_items") or [],
+            excluded_funds=excluded_funds,
             screened_count=final.get("screened_count", 0),
             eligible_count=final.get("eligible_count", 0),
             excluded_count=final.get("excluded_count", 0),
