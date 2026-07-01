@@ -108,6 +108,11 @@ class FeishuBotService:
         self._last_message_at = ""
         self._last_reply_at = ""
         self._last_reply_error = ""
+        self._last_intent: dict[str, Any] = {}
+        self._last_lookup_code = ""
+        self._last_lookup_query = ""
+        self._last_lookup_match_count = 0
+        self._last_lookup_matches: list[str] = []
 
     # ── Public API ─────────────────────────────────────────────────
 
@@ -133,6 +138,11 @@ class FeishuBotService:
             "last_message_preview": self._last_message_text[:80],
             "last_reply_at": self._last_reply_at,
             "last_reply_error": self._last_reply_error,
+            "last_intent": self._last_intent,
+            "last_lookup_code": self._last_lookup_code,
+            "last_lookup_query": self._last_lookup_query,
+            "last_lookup_match_count": self._last_lookup_match_count,
+            "last_lookup_matches": self._last_lookup_matches,
         }
 
     async def start(self) -> None:
@@ -293,6 +303,7 @@ class FeishuBotService:
     ) -> None:
         """Classify intent and dispatch to the appropriate handler."""
         intent = self._classify_intent(text)
+        self._last_intent = intent
         action = intent.get("action", "help")
         logger.info("[FeishuBot] intent=%s params=%s", action, intent)
 
@@ -520,6 +531,12 @@ class FeishuBotService:
         try:
             funds = self.fund_loader.load()
             matches = self._find_fund_matches(funds, fund_code, query)
+            self._last_lookup_code = fund_code
+            self._last_lookup_query = query
+            self._last_lookup_match_count = len(matches)
+            self._last_lookup_matches = [
+                f"{fund.fund_code} {fund.fund_name}" for fund in matches[:5]
+            ]
 
             if not matches:
                 self._send_text(receive_id, receive_id_type, f"未找到基金 {lookup_text}，请确认代码或名称是否正确。")
