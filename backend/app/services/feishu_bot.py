@@ -386,8 +386,14 @@ class FeishuBotService:
             }
 
         normalized = text.strip().lower()
-        lookup_words = ["查", "查询", "看看", "详情", "基金"]
-        if any(word in normalized for word in lookup_words):
+        explicit_lookup_words = ["查", "查询", "看看", "详情", "代码"]
+        fund_name_hints = ["易方达", "etf", "联接", "混合", "债券", "指数", "货币", "qdii", "lof", "增强"]
+        campaign_words = ["推荐", "推介", "生成", "话术", "选品", "文案"]
+        should_lookup_by_name = (
+            any(hint in normalized for hint in fund_name_hints)
+            and not any(word in normalized for word in campaign_words)
+        )
+        if any(word in normalized for word in explicit_lookup_words) or should_lookup_by_name:
             query = FeishuBotService._clean_fund_query(text)
             if query:
                 return {
